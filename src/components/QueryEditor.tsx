@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CatalogInfo from './CatalogInfo';
+import SchemaDocumentation from './SchemaDocumentation';
 
 interface Tab {
   id: string;
@@ -16,6 +17,8 @@ interface QueryEditorProps {
   onFormat: () => void;
   selectedTable?: any;
   selectedColumn?: string;
+  selectedSchema?: string;
+  models?: any[];
   className?: string;
 }
 
@@ -27,10 +30,12 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   onFormat,
   selectedTable,
   selectedColumn,
+  selectedSchema,
+  models = [],
   className = ''
 }) => {
   const [tabs, setTabs] = useState<Tab[]>([
-    { id: 'docs', name: '📋 Documentation', content: '', isDirty: false },
+    { id: 'docs', name: '📋 Docs', content: '', isDirty: false },
     { id: '1', name: 'Query 1', content: queryText, isDirty: false }
   ]);
   const [activeTabId, setActiveTabId] = useState('1');
@@ -57,16 +62,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     }
   }, [queryText, activeTabId]);
 
-  // Update docs tab when table is selected
-  useEffect(() => {
-    if (selectedTable) {
-      setTabs(prev => prev.map(tab => 
-        tab.id === 'docs' 
-          ? { ...tab, name: `📋 ${selectedTable.name}` }
-          : tab
-      ));
-    }
-  }, [selectedTable]);
+  // Keep docs tab name as "docs" - no need to update based on selected table
 
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -388,11 +384,19 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       <div className="flex-grow-1 d-flex flex-column" style={{ minHeight: 0, position: 'relative', overflow: 'hidden' }}>
         {activeTabId === 'docs' ? (
           <div className="flex-grow-1" style={{ overflow: 'auto', maxHeight: '100%' }}>
-            <CatalogInfo
-              selectedTable={selectedTable}
-              selectedColumn={selectedColumn}
-              className="h-100"
-            />
+            {selectedSchema ? (
+              <SchemaDocumentation
+                schemaName={selectedSchema}
+                models={models}
+                className="h-100"
+              />
+            ) : (
+              <CatalogInfo
+                selectedTable={selectedTable}
+                selectedColumn={selectedColumn}
+                className="h-100"
+              />
+            )}
           </div>
         ) : (
           <div className="p-3 d-flex flex-column flex-grow-1">

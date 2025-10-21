@@ -6,9 +6,11 @@ interface ModelExplorerProps {
   onValidationResult?: (result: string) => void;
   onTableSelect?: (table: any) => void;
   onColumnSelect?: (column: string) => void;
+  onSchemaSelect?: (schema: string) => void;
+  onModelsLoaded?: (models: any[]) => void;
 }
 
-const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidationResult, onTableSelect, onColumnSelect }) => {
+const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidationResult, onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded }) => {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'databases': true,
     'production': true,
@@ -115,6 +117,11 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
         console.log('Extracted models array:', modelsArray);
         setModels(modelsArray);
         
+        // Notify parent component about loaded models
+        if (onModelsLoaded) {
+          onModelsLoaded(modelsArray);
+        }
+        
         // Update expanded folders to include schemas
         const schemaMap = organizeModelsBySchema(modelsArray);
         const newExpandedFolders: Record<string, boolean> = {
@@ -145,6 +152,13 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
   useEffect(() => {
     loadModels();
   }, []);
+
+  // Notify parent when models change
+  useEffect(() => {
+    if (models.length > 0 && onModelsLoaded) {
+      onModelsLoaded(models);
+    }
+  }, [models, onModelsLoaded]);
 
   const handleValidateModels = async () => {
     setIsValidating(true);
@@ -324,7 +338,19 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
                   <div key={schema} className="explorer-item">
                     <div 
                       className="explorer-folder" 
-                      onClick={() => toggleFolder(`schema-${schema}`)}
+                      onClick={(e) => {
+                        // Always toggle folder first
+                        toggleFolder(`schema-${schema}`);
+                        
+                        // If clicking on the schema name (not the chevron), also select the schema
+                        if (e.target instanceof HTMLElement && (e.target.tagName === 'SPAN' || e.target.closest('span'))) {
+                          if (onSchemaSelect) {
+                            console.log('ModelExplorer: Schema selected:', schema);
+                            onSchemaSelect(schema);
+                          }
+                        }
+                      }}
+                      style={{ cursor: 'pointer' }}
                     >
                       <i className={`bi ${expandedFolders[`schema-${schema}`] ? 'bi-chevron-down' : 'bi-chevron-right'} me-1`}></i>
                       <i className="bi bi-folder me-2"></i>

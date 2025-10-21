@@ -6,8 +6,10 @@ const Navbar: React.FC = () => {
       <div className="container-fluid">
         <a className="navbar-brand fw-bold" href="#" style={{ 
           color: '#aa0000', 
-          fontSize: '18pt',
-          textShadow: '0.5px 0.5px 0 white, -0.5px -0.5px 0 white, 0.5px -0.5px 0 white, -0.5px 0.5px 0 white'
+          fontSize: '21pt',
+          lineHeight: '1',
+          padding: '0',
+          margin: '0'
         }}>
           <span>red</span><span style={{ fontStyle: 'italic', opacity: 0.9 }}>five</span>
         </a>

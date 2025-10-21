@@ -18,8 +18,8 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
   className = '' 
 }) => {
   return (
-    <div className={`flex-grow-1 d-flex flex-column ${className}`}>
-      <div className="p-3 flex-grow-1 d-flex flex-column">
+    <div className={`flex-grow-1 d-flex flex-column ${className}`} style={{ height: '100%', overflow: 'hidden' }}>
+      <div className="p-3 flex-grow-1 d-flex flex-column" style={{ height: '100%', overflow: 'hidden' }}>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h6 className="text-muted mb-0">
             <i className="bi bi-table me-2"></i>Results
@@ -53,16 +53,18 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
         
         {/* Results table */}
         {!isExecuting && !error && results.length > 0 && (
-          <div className="table-responsive flex-grow-1" style={{ 
-            overflow: 'auto',
-            maxHeight: '100%',
+          <div className="flex-grow-1" style={{ 
+            overflowY: 'auto',
+            overflowX: 'auto',
+            height: 'calc(100% - 60px)',
+            maxHeight: 'calc(100% - 60px)',
             scrollbarWidth: 'thin'
           }}>
-            <table className="table table-striped table-hover">
+            <table className="table table-striped table-hover" style={{ whiteSpace: 'nowrap' }}>
               <thead className="table-dark sticky-top">
                 <tr>
                   {columns.map((column, index) => (
-                    <th key={index}>{column}</th>
+                    <th key={index} style={{ whiteSpace: 'nowrap' }}>{column}</th>
                   ))}
                 </tr>
               </thead>
@@ -70,7 +72,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
                 {results.map((row, rowIndex) => (
                   <tr key={rowIndex}>
                     {columns.map((column, colIndex) => (
-                      <td key={colIndex}>
+                      <td key={colIndex} style={{ whiteSpace: 'nowrap' }}>
                         {row[column] !== null && row[column] !== undefined 
                           ? String(row[column]) 
                           : <span className="text-muted">NULL</span>

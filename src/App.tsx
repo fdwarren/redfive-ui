@@ -37,6 +37,8 @@ function App() {
   // Catalog selection state
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
+  const [selectedSchema, setSelectedSchema] = useState<string | null>(null);
+  const [models, setModels] = useState<any[]>([]);
 
   const handleExecute = async (selectedQuery?: string) => {
     const queryToExecute = selectedQuery || queryText;
@@ -131,8 +133,14 @@ function App() {
             onTableSelect={(table) => {
               console.log('App: onTableSelect called with:', table);
               setSelectedTable(table);
+              setSelectedSchema(null); // Clear schema selection
             }}
             onColumnSelect={setSelectedColumn}
+            onSchemaSelect={(schema) => {
+              setSelectedSchema(schema);
+              setSelectedTable(null); // Clear table selection
+            }}
+            onModelsLoaded={setModels}
           />
         </div>
 
@@ -151,6 +159,8 @@ function App() {
               onFormat={handleFormat}
               selectedTable={selectedTable}
               selectedColumn={selectedColumn || undefined}
+              selectedSchema={selectedSchema || undefined}
+              models={models}
               className="h-100"
             />
           </div>
