@@ -38,6 +38,12 @@ class DataService {
         'Accept': 'application/json',
       };
 
+      // Add JWT token from localStorage if available
+      const accessToken = localStorage.getItem('access_token');
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
       // Add API key if provided
       if (this.apiKey) {
         headers['Authorization'] = `Bearer ${this.apiKey}`;
@@ -51,7 +57,7 @@ class DataService {
         headers,
         body: JSON.stringify(requestBody),
         mode: 'cors', // Explicitly set CORS mode
-        credentials: 'omit', // Don't send cookies
+        credentials: 'include', // Include cookies for session-based auth
         cache: 'no-cache', // Prevent caching issues
       });
 
@@ -108,6 +114,12 @@ class DataService {
         'Accept': 'application/json',
       };
 
+      // Add JWT token from localStorage if available
+      const accessToken = localStorage.getItem('access_token');
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
       // Add API key if provided
       if (this.apiKey) {
         headers['Authorization'] = `Bearer ${this.apiKey}`;
@@ -121,7 +133,7 @@ class DataService {
         headers,
         body: JSON.stringify(requestBody),
         mode: 'cors',
-        credentials: 'omit',
+        credentials: 'include',
         cache: 'no-cache',
       });
 
@@ -222,6 +234,12 @@ class DataService {
         'Accept': 'application/json',
       };
 
+      // Add JWT token from localStorage if available
+      const accessToken = localStorage.getItem('access_token');
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
       // Add API key if provided
       if (this.apiKey) {
         headers['Authorization'] = `Bearer ${this.apiKey}`;
@@ -233,7 +251,7 @@ class DataService {
         method: 'GET',
         headers,
         mode: 'cors',
-        credentials: 'omit',
+        credentials: 'include',
         cache: 'no-cache',
       });
 
@@ -272,66 +290,6 @@ class DataService {
     }
   }
 
-  /**
-   * Validate models endpoint
-   * @returns Promise with validation results
-   */
-  async validateModels(): Promise<DataServiceResponse> {
-    try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
-
-      // Add API key if provided
-      if (this.apiKey) {
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
-      }
-
-      console.log('Validating models at:', `${this.baseUrl}/validate-models`);
-
-      const response = await fetch(`${this.baseUrl}/validate-models`, {
-        method: 'GET',
-        headers,
-        mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-cache',
-      });
-
-      console.log('Validation response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Validation error:', errorText);
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('Validation response data:', data);
-      
-      return {
-        success: true,
-        data: data,
-        message: 'Models validated successfully'
-      };
-
-    } catch (error) {
-      console.error('Model validation error:', error);
-      
-      let errorMessage = 'Unknown error occurred';
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error: Unable to connect to the data service';
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        message: 'Failed to validate models'
-      };
-    }
-  }
  
 }
 

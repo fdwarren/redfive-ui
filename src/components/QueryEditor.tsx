@@ -38,6 +38,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     { id: 'docs', name: '📋 Docs', content: '', isDirty: false },
     { id: '1', name: 'Query 1', content: '', isDirty: false }
   ]);
+  const prevQueryLength = React.useRef(0);
   const [activeTabId, setActiveTabId] = useState('1');
   const [tabCounter, setTabCounter] = useState(2);
 
@@ -52,7 +53,8 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     );
     
     // Auto-scroll to bottom when content changes (for SQL generation)
-    if (queryText && queryText.includes('-- Generated SQL:')) {
+    // Check if the query text has grown significantly (indicating new SQL was added)
+    if (queryText && queryText.length > prevQueryLength.current && queryText.length - prevQueryLength.current > 10) {
       setTimeout(() => {
         const textarea = document.querySelector('.query-editor-textarea') as HTMLTextAreaElement;
         if (textarea) {
@@ -60,6 +62,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
         }
       }, 100);
     }
+    prevQueryLength.current = queryText.length;
   }, [queryText]); // Removed activeTabId from dependencies
 
   // Keep docs tab name as "docs" - no need to update based on selected table
@@ -438,7 +441,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
               className="form-control font-monospace flex-grow-1 query-editor-textarea"
               value={activeTab?.content || ''}
               onChange={(e) => updateTabContent(e.target.value)}
-              placeholder="Enter your SQL query here..."
+              placeholder="Enter your SQL query here or use the AI Assistant to generate it for you."
               style={{ 
                 resize: 'none',
                 overflow: 'auto',

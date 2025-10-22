@@ -3,7 +3,6 @@ import DataService from '../services/DataService';
 
 interface ModelExplorerProps {
   className?: string;
-  onValidationResult?: (result: string) => void;
   onTableSelect?: (table: any) => void;
   onColumnSelect?: (column: string) => void;
   onSchemaSelect?: (schema: string) => void;
@@ -11,14 +10,12 @@ interface ModelExplorerProps {
   onGenerateSelect?: (table: any) => void;
 }
 
-const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidationResult, onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect }) => {
+const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect }) => {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'databases': true,
     'production': true,
     'saved-queries': false
   });
-  const [isValidating, setIsValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<string | null>(null);
   const [models, setModels] = useState<any[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
@@ -162,43 +159,6 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
     }
   }, [models, onModelsLoaded]);
 
-  const handleValidateModels = async () => {
-    setIsValidating(true);
-    setValidationResult(null);
-    
-    try {
-      const response = await dataService.validateModels();
-      
-      if (response.success && response.data) {
-        // Format the JSON response for display
-        const jsonResponse = JSON.stringify(response.data, null, 2);
-        setValidationResult('✅ Models validated successfully!');
-        
-        // Pass the formatted JSON to the parent component
-        if (onValidationResult) {
-          onValidationResult(jsonResponse);
-        }
-      } else {
-        const errorMessage = `❌ Validation failed: ${response.error || 'Unknown error'}`;
-        setValidationResult(errorMessage);
-        
-        // Pass error message to parent component
-        if (onValidationResult) {
-          onValidationResult(errorMessage);
-        }
-      }
-    } catch (error) {
-      const errorMessage = `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      setValidationResult(errorMessage);
-      
-      // Pass error message to parent component
-      if (onValidationResult) {
-        onValidationResult(errorMessage);
-      }
-    } finally {
-      setIsValidating(false);
-    }
-  };
 
   const showContextMenu = (e: React.MouseEvent, type: 'table' | 'column', item: any) => {
     e.preventDefault();
@@ -237,19 +197,6 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
             <i className="bi bi-folder me-2"></i>Model Explorer
           </h6>
           <div className="d-flex gap-1">
-            <button 
-              className="btn btn-sm"
-              style={{ backgroundColor: '#aa0000', borderColor: '#aa0000', color: 'white' }}
-              onClick={handleValidateModels}
-              disabled={isValidating}
-              title="Validate models"
-            >
-              {isValidating ? (
-                <i className="bi bi-hourglass-split"></i>
-              ) : (
-                <i className="bi bi-check-circle"></i>
-              )}
-            </button>
             <button 
               className="btn btn-sm btn-outline-secondary"
               onClick={loadModels}
@@ -406,14 +353,6 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
               <small>Models will appear here once loaded</small>
             </div>
           )}
-        {/* Validation Result at Bottom */}
-        {validationResult && (
-          <div className="p-2 border-top bg-light">
-            <div className="small text-muted">
-              {validationResult}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Context Menu */}
