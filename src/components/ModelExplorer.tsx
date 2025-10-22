@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import DataService from '../services/DataService';
 
 interface ModelExplorerProps {
@@ -8,9 +8,10 @@ interface ModelExplorerProps {
   onColumnSelect?: (column: string) => void;
   onSchemaSelect?: (schema: string) => void;
   onModelsLoaded?: (models: any[]) => void;
+  onGenerateSelect?: (table: any) => void;
 }
 
-const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidationResult, onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded }) => {
+const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidationResult, onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect }) => {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'databases': true,
     'production': true,
@@ -59,12 +60,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
       const schema = model.schema || model.schema_name || model.database_schema || 'default';
       const tableName = model.name || model.table_name;
       
-      console.log('Processing model:', { 
-        schema, 
-        tableName, 
-        modelKeys: Object.keys(model),
-        fullModel: model 
-      });
+      // Model processing is now memoized, so this won't log on every render
       
       if (!schemaMap[schema]) {
         schemaMap[schema] = {};
@@ -88,6 +84,12 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
     
     return schemaMap;
   };
+
+  // Memoize the schema organization to prevent unnecessary re-processing
+  const schemaMap = useMemo(() => {
+    if (models.length === 0) return {};
+    return organizeModelsBySchema(models);
+  }, [models]);
 
   const loadModels = async () => {
     console.log('Starting to load models...');
@@ -215,52 +217,6 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
     setContextMenu({ show: false, x: 0, y: 0, type: 'table', item: null });
   };
 
-  const handleViewDocumentation = () => {
-    if (contextMenu.item) {
-      let docContent = '';
-      
-      if (contextMenu.type === 'table') {
-        // Generate table documentation
-        docContent = `# Table: ${contextMenu.item.name}\n\n`;
-        docContent += `**Description:** ${contextMenu.item.description || 'No description available'}\n\n`;
-        
-        if (contextMenu.item.columns && contextMenu.item.columns.length > 0) {
-          docContent += `## Columns\n\n`;
-          docContent += `| Column | Type | Nullable | Description |\n`;
-          docContent += `|--------|------|----------|-------------|\n`;
-          
-          contextMenu.item.columns.forEach((col: any) => {
-            docContent += `| ${col.name} | ${col.type || 'N/A'} | ${col.nullable ? 'Yes' : 'No'} | ${col.description || 'No description'} |\n`;
-          });
-        } else {
-          docContent += `No column information available.\n`;
-        }
-        
-        // Add keys if available
-        if (contextMenu.item.keys?.primary) {
-          docContent += `\n**Primary Key:** ${contextMenu.item.keys.primary}\n`;
-        }
-        if (contextMenu.item.keys?.foreign && contextMenu.item.keys.foreign.length > 0) {
-          docContent += `\n**Foreign Keys:**\n`;
-          contextMenu.item.keys.foreign.forEach((fk: any) => {
-            docContent += `- ${fk.columns} → ${fk.ref_schema}.${fk.ref_table}(${fk.ref_columns})\n`;
-          });
-        }
-      } else {
-        // Generate column documentation
-        docContent = `# Column: ${contextMenu.item.name}\n\n`;
-        docContent += `**Type:** ${contextMenu.item.type || 'N/A'}\n`;
-        docContent += `**Nullable:** ${contextMenu.item.nullable ? 'Yes' : 'No'}\n`;
-        docContent += `**Description:** ${contextMenu.item.description || 'No description available'}\n`;
-      }
-      
-      // Pass the documentation content to create/update a documentation tab
-      if (onValidationResult) {
-        onValidationResult(docContent);
-      }
-    }
-    hideContextMenu();
-  };
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -275,7 +231,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
 
   return (
     <div className={`bg-light border-end d-flex flex-column h-100 ${className}`} style={{ overflow: 'hidden' }}>
-      <div className="p-2 border-bottom">
+      <div className="p-2 border-bottom" style={{ background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)' }}>
         <div className="d-flex justify-content-between align-items-center">
           <h6 className="text-muted mb-0 d-flex align-items-center">
             <i className="bi bi-folder me-2"></i>Model Explorer
@@ -324,15 +280,10 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
               </div>
               <div className="small text-muted mt-2">Loading models...</div>
             </div>
-          ) : (() => {
-            console.log('Rendering models. isLoadingModels:', isLoadingModels, 'models:', models, 'models.length:', models?.length);
-            return models.length > 0;
-          })() ? (
+          ) : models.length > 0 ? (
             <>
               {/* Models organized by schema */}
-              {(() => {
-                const schemaMap = organizeModelsBySchema(models);
-                return Object.entries(schemaMap)
+              {Object.entries(schemaMap)
                   .sort(([a], [b]) => a.localeCompare(b))
                   .map(([schema, tables]) => (
                   <div key={schema} className="explorer-item">
@@ -418,8 +369,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
                       </div>
                     )}
                   </div>
-                ));
-              })()}
+                ))}
 
               {/* Saved Queries Folder */}
               <div className="explorer-item">
@@ -485,33 +435,38 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onValidat
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div 
-            className="context-menu-item"
-            onClick={handleViewDocumentation}
-            style={{
-              padding: '10px 16px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              borderBottom: '1px solid #f0f0f0',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#f8f9fa';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-          >
-            <i className="bi bi-file-text text-primary"></i>
-            <span>View Documentation</span>
-          </div>
+          {contextMenu.type === 'table' && onGenerateSelect && (
+            <div 
+              className="context-menu-item"
+              onClick={() => {
+                onGenerateSelect(contextMenu.item);
+                setContextMenu({ show: false, x: 0, y: 0, type: 'table', item: null });
+              }}
+              style={{
+                padding: '10px 16px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                borderBottom: '1px solid #f0f0f0',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f8f9fa';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <i className="bi bi-code-slash text-success"></i>
+              <span>Generate Select</span>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-export default ModelExplorer;
+export default memo(ModelExplorer);

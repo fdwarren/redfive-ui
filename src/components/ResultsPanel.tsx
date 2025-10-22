@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 interface ResultsPanelProps {
   results: any[];
@@ -6,6 +6,8 @@ interface ResultsPanelProps {
   rowCount: number;
   isExecuting: boolean;
   error: string | null;
+  selectedRowIndex: number | null;
+  onRowSelect: (rowIndex: number) => void;
   className?: string;
 }
 
@@ -15,8 +17,11 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
   rowCount, 
   isExecuting, 
   error, 
+  selectedRowIndex,
+  onRowSelect,
   className = '' 
 }) => {
+
   return (
     <div className={`flex-grow-1 d-flex flex-column ${className}`} style={{ height: '100%', overflow: 'hidden' }}>
       <div className="p-2 flex-grow-1 d-flex flex-column" style={{ height: '100%', overflow: 'hidden' }}>
@@ -69,7 +74,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
                       padding: '0.5rem 0.6rem 0.4rem 0.6rem', 
                       lineHeight: '1.2', 
                       color: 'white', 
-                      backgroundColor: '#aa0000',
+                      backgroundColor: '#495057',
                       border: 'none'
                     }}>{column}</th>
                   ))}
@@ -77,7 +82,27 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
               </thead>
               <tbody>
                 {results.map((row, rowIndex) => (
-                  <tr key={rowIndex} style={{ lineHeight: '1.2' }}>
+                  <tr 
+                    key={rowIndex} 
+                    className={selectedRowIndex === rowIndex ? 'table-row-selected' : ''}
+                    style={{ 
+                      lineHeight: '1.2',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease',
+                      backgroundColor: selectedRowIndex === rowIndex ? '#e3f2fd' : 'transparent'
+                    }}
+                    onClick={() => onRowSelect(rowIndex)}
+                    onMouseEnter={(e) => {
+                      if (selectedRowIndex !== rowIndex) {
+                        e.currentTarget.style.backgroundColor = '#f5f5f5';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedRowIndex !== rowIndex) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                  >
                     {columns.map((column, colIndex) => (
                       <td key={colIndex} style={{ whiteSpace: 'nowrap', padding: '0.4rem 0.6rem', lineHeight: '1.2' }}>
                         {row[column] !== null && row[column] !== undefined 
@@ -108,4 +133,4 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
   );
 };
 
-export default ResultsPanel;
+export default memo(ResultsPanel);

@@ -106,8 +106,7 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             style={{ 
-              borderColor: '#aa0000',
-              focus: { borderColor: '#aa0000', boxShadow: '0 0 0 0.2rem rgba(170, 0, 0, 0.25)' }
+              borderColor: '#aa0000'
             }}
           />
         </div>

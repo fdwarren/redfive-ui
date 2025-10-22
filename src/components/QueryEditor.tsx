@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import CatalogInfo from './CatalogInfo';
 import SchemaDocumentation from './SchemaDocumentation';
 
@@ -36,7 +36,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
 }) => {
   const [tabs, setTabs] = useState<Tab[]>([
     { id: 'docs', name: '📋 Docs', content: '', isDirty: false },
-    { id: '1', name: 'Query 1', content: queryText, isDirty: false }
+    { id: '1', name: 'Query 1', content: '', isDirty: false }
   ]);
   const [activeTabId, setActiveTabId] = useState('1');
   const [tabCounter, setTabCounter] = useState(2);
@@ -268,7 +268,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       content: '',
       isDirty: false
     };
-    setTabs([docsTab, newTab].filter(Boolean));
+    setTabs([docsTab, newTab].filter((tab): tab is Tab => tab !== undefined));
     setActiveTabId(newTab.id);
     setTabCounter(prev => prev + 1);
     onQueryChange('');
@@ -281,7 +281,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     if (tab) {
       // Always keep the Docs tab, plus the selected tab (if it's not the Docs tab)
       const tabsToKeep = tabId === 'docs' ? [docsTab] : [docsTab, tab];
-      setTabs(tabsToKeep.filter(Boolean));
+      setTabs(tabsToKeep.filter((tab): tab is Tab => tab !== undefined));
       setActiveTabId(tabId);
     }
     hideContextMenu();
@@ -293,8 +293,10 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     const newTabs = tabs.slice(0, tabIndex + 1);
     
     // Ensure the Docs tab is always included
-    const finalTabs = newTabs.includes(docsTab) ? newTabs : [docsTab, ...newTabs];
-    setTabs(finalTabs);
+    if (docsTab && !newTabs.includes(docsTab)) {
+      newTabs.unshift(docsTab);
+    }
+    setTabs(newTabs);
     setActiveTabId(tabId);
     hideContextMenu();
   };
@@ -328,9 +330,9 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   }, [activeTabId, editingTabId, handleExecute]);
 
   return (
-    <div className={`d-flex flex-column h-100 ${className}`} style={{ overflow: 'hidden' }}>
+    <div className={`bg-light border-start d-flex flex-column h-100 ${className}`} style={{ overflow: 'hidden' }}>
       {/* Header with Tabs */}
-      <div className="border-bottom" style={{ flexShrink: 0 }}>
+      <div className="border-bottom" style={{ flexShrink: 0, paddingTop: 'calc(0.5rem - 3px)', borderBottomWidth: '1px' }}>
         <div className="d-flex align-items-center">
           {/* Left scroll arrow */}
           {showLeftArrow && (
@@ -445,24 +447,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
             />
           </div>
         )}
-        {/* Watermark */}
-        <div 
-          className="query-watermark"
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            fontSize: '240px',
-            fontWeight: 'bold',
-            color: 'rgba(170, 0, 0, 0.2)',
-            pointerEvents: 'none',
-            zIndex: 0,
-            userSelect: 'none'
-          }}
-        >
-          5
-        </div>
       </div>
       
       {/* Buttons - fixed at bottom */}
@@ -514,4 +498,4 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   );
 };
 
-export default QueryEditor;
+export default memo(QueryEditor);
