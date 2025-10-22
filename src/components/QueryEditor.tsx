@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import CatalogInfo from './CatalogInfo';
 import SchemaDocumentation from './SchemaDocumentation';
 
@@ -41,7 +41,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   const [activeTabId, setActiveTabId] = useState('1');
   const [tabCounter, setTabCounter] = useState(2);
 
-  // Sync queryText prop changes with active tab content
+  // Sync queryText prop changes with active tab content (only when queryText actually changes)
   useEffect(() => {
     setTabs(prevTabs => 
       prevTabs.map(tab => 
@@ -60,7 +60,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
         }
       }, 100);
     }
-  }, [queryText, activeTabId]);
+  }, [queryText]); // Removed activeTabId from dependencies
 
   // Keep docs tab name as "docs" - no need to update based on selected table
 
@@ -151,7 +151,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     return null;
   };
 
-  const handleExecute = () => {
+  const handleExecute = useCallback(() => {
     const selectedText = getSelectedText();
     if (selectedText) {
       // Execute only the selected text
@@ -160,7 +160,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       // Execute the entire query
       onExecute();
     }
-  };
+  }, [onExecute]);
 
   const startEditingTab = (tabId: string) => {
     const tab = tabs.find(t => t.id === tabId);
@@ -260,17 +260,28 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   };
 
   const closeAllTabs = () => {
-    // Keep only the first tab and clear its content
-    const firstTab = tabs[0];
-    setTabs([{ ...firstTab, content: '', name: 'Query 1', isDirty: false }]);
-    setActiveTabId(firstTab.id);
+    // Keep the Docs tab and create a new empty query tab
+    const docsTab = tabs.find(t => t.id === 'docs');
+    const newTab: Tab = {
+      id: tabCounter.toString(),
+      name: `Query ${tabCounter}`,
+      content: '',
+      isDirty: false
+    };
+    setTabs([docsTab, newTab].filter(Boolean));
+    setActiveTabId(newTab.id);
+    setTabCounter(prev => prev + 1);
+    onQueryChange('');
     hideContextMenu();
   };
 
   const closeOthers = (tabId: string) => {
     const tab = tabs.find(t => t.id === tabId);
+    const docsTab = tabs.find(t => t.id === 'docs');
     if (tab) {
-      setTabs([tab]);
+      // Always keep the Docs tab, plus the selected tab (if it's not the Docs tab)
+      const tabsToKeep = tabId === 'docs' ? [docsTab] : [docsTab, tab];
+      setTabs(tabsToKeep.filter(Boolean));
       setActiveTabId(tabId);
     }
     hideContextMenu();
@@ -278,8 +289,12 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
 
   const closeOthersToRight = (tabId: string) => {
     const tabIndex = tabs.findIndex(t => t.id === tabId);
+    const docsTab = tabs.find(t => t.id === 'docs');
     const newTabs = tabs.slice(0, tabIndex + 1);
-    setTabs(newTabs);
+    
+    // Ensure the Docs tab is always included
+    const finalTabs = newTabs.includes(docsTab) ? newTabs : [docsTab, ...newTabs];
+    setTabs(finalTabs);
     setActiveTabId(tabId);
     hideContextMenu();
   };
@@ -294,6 +309,23 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [contextMenu.show]);
+
+  // Handle keyboard shortcuts
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl+Enter (Windows/Linux) or Cmd+Enter (Mac)
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        // Only execute if we're not in the docs tab and not editing a tab name
+        if (activeTabId !== 'docs' && !editingTabId) {
+          e.preventDefault();
+          handleExecute();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [activeTabId, editingTabId, handleExecute]);
 
   return (
     <div className={`d-flex flex-column h-100 ${className}`} style={{ overflow: 'hidden' }}>
@@ -465,7 +497,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="context-menu-item" onClick={() => copyTab(contextMenu.tabId)}>
-            <i className="bi bi-files me-2"></i>Copy Tab
+            <i className="bi bi-files me-2"></i>Duplicate Tab
           </div>
           <div className="context-menu-item" onClick={closeAllTabs}>
             <i className="bi bi-x-square me-2"></i>Close All

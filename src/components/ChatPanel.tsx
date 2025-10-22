@@ -196,7 +196,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
         <div className="d-flex gap-2">
           <textarea
             className="form-control flex-grow-1"
-            placeholder={isLoading ? "Almost there..." : "Red 5, standing by..."}
+            placeholder={isLoading ? "Almost there..." : "redfive standing by..."}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
