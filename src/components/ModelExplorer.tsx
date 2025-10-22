@@ -27,7 +27,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
   }>({ show: false, x: 0, y: 0, type: 'table', item: null });
   
   // Initialize DataService
-  const dataService = new DataService('http://localhost:8000');
+  const dataService = new DataService();
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => ({

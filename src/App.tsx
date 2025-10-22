@@ -21,7 +21,7 @@ function App() {
   const [executionError, setExecutionError] = useState<string | null>(null);
 
   // Initialize DataService
-  const dataService = useMemo(() => new DataService('http://localhost:8000'), []);
+  const dataService = useMemo(() => new DataService(), []);
 
   // Panel width state
   const [leftPanelWidth, setLeftPanelWidth] = useState(312); // pixels (250 * 1.25)

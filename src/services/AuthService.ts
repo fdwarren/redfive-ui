@@ -1,11 +1,12 @@
-import { User } from '../contexts/AuthContext';
+import type { User } from '../contexts/AuthContext';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
 export class AuthService {
   private static instance: AuthService;
   private baseUrl: string;
 
-  constructor(baseUrl: string = 'http://localhost:8000') {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string) {
+    this.baseUrl = baseUrl || getApiBaseUrl();
   }
 
   static getInstance(baseUrl?: string): AuthService {

@@ -22,7 +22,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   // Initialize DataService
-  const dataService = new DataService('http://localhost:8000');
+  const dataService = new DataService();
 
   // Auto-scroll to bottom when new messages are added
   useEffect(() => {

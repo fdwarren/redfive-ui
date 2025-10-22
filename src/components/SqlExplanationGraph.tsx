@@ -1,16 +1,15 @@
-import React from "react";
 import ReactFlow, { Background, Controls } from "reactflow";
 import "reactflow/dist/style.css";
 
-const SqlExplanationGraph = ({ explanation }) => {
-  const nodes = explanation.tables.map((t, i) => ({
+const SqlExplanationGraph = ({ explanation }: { explanation: any }) => {
+  const nodes = explanation.tables.map((t: any, i: number) => ({
     id: t,
     position: { x: 100 * i, y: 100 * i },
     data: { label: t },
     type: "default"
   }));
 
-  const edges = (explanation.relationships || []).map((r, i) => ({
+  const edges = (explanation.relationships || []).map((r: any, i: number) => ({
     id: `e${i}`,
     source: r.from_table,
     target: r.to_table,

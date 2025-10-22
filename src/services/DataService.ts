@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from '../utils/apiConfig';
+
 interface DataServiceResponse {
   success: boolean;
   data?: any;
@@ -17,8 +19,8 @@ class DataService {
   private baseUrl: string;
   private apiKey?: string;
 
-  constructor(baseUrl: string = 'http://localhost:8000', apiKey?: string) {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string, apiKey?: string) {
+    this.baseUrl = baseUrl || getApiBaseUrl();
     this.apiKey = apiKey;
   }
 
@@ -38,14 +40,12 @@ class DataService {
         'Accept': 'application/json',
       };
 
-      // Add JWT token from localStorage if available
-      const accessToken = localStorage.getItem('access_token');
+      // Get a valid access token (refresh if necessary)
+      const accessToken = await this.getValidToken();
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
-      // Add API key if provided
-      if (this.apiKey) {
+      } else if (this.apiKey) {
+        // Fallback to API key if no valid token
         headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
 
@@ -85,7 +85,7 @@ class DataService {
       // Provide more specific error messages
       let errorMessage = 'Unknown error occurred';
       if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error: Unable to connect to the data service. Please check if the service is running at http://localhost:8000';
+        errorMessage = `Network error: Unable to connect to the data service. Please check if the service is running at ${this.baseUrl}`;
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -114,14 +114,12 @@ class DataService {
         'Accept': 'application/json',
       };
 
-      // Add JWT token from localStorage if available
-      const accessToken = localStorage.getItem('access_token');
+      // Get a valid access token (refresh if necessary)
+      const accessToken = await this.getValidToken();
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
-      // Add API key if provided
-      if (this.apiKey) {
+      } else if (this.apiKey) {
+        // Fallback to API key if no valid token
         headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
 
@@ -234,14 +232,12 @@ class DataService {
         'Accept': 'application/json',
       };
 
-      // Add JWT token from localStorage if available
-      const accessToken = localStorage.getItem('access_token');
+      // Get a valid access token (refresh if necessary)
+      const accessToken = await this.getValidToken();
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
-      // Add API key if provided
-      if (this.apiKey) {
+      } else if (this.apiKey) {
+        // Fallback to API key if no valid token
         headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
 
@@ -288,6 +284,133 @@ class DataService {
         message: 'Failed to get models'
       };
     }
+  }
+
+  /**
+   * Refresh the access token using the refresh token
+   * @returns Promise with new tokens
+   */
+  async refreshToken(): Promise<DataServiceResponse> {
+    try {
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!refreshToken) {
+        return {
+          success: false,
+          error: 'No refresh token available',
+          message: 'Please log in again'
+        };
+      }
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      console.log('Refreshing token...');
+
+      const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ refresh_token: refreshToken }),
+        mode: 'cors',
+        credentials: 'include',
+        cache: 'no-cache',
+      });
+
+      console.log('Token refresh response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Token refresh error:', errorText);
+        
+        // If refresh fails, clear stored tokens
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        
+        return {
+          success: false,
+          error: `Token refresh failed: ${errorText}`,
+          message: 'Please log in again'
+        };
+      }
+
+      const data = await response.json();
+      console.log('Token refresh response data:', data);
+      
+      // Update stored tokens
+      if (data.access_token) {
+        localStorage.setItem('access_token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refresh_token', data.refresh_token);
+        }
+        console.log('Tokens refreshed successfully');
+      }
+      
+      return {
+        success: true,
+        data: data,
+        message: 'Token refreshed successfully'
+      };
+
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      
+      // Clear stored tokens on error
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        message: 'Token refresh failed, please log in again'
+      };
+    }
+  }
+
+  /**
+   * Check if a token is expired (basic JWT expiration check)
+   * @param token - JWT token to check
+   * @returns boolean indicating if token is expired
+   */
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Date.now() / 1000;
+      return payload.exp < currentTime;
+    } catch (error) {
+      console.error('Error checking token expiration:', error);
+      return true; // Assume expired if we can't parse
+    }
+  }
+
+  /**
+   * Get a valid access token, refreshing if necessary
+   * @returns Promise with valid access token
+   */
+  async getValidToken(): Promise<string | null> {
+    const accessToken = localStorage.getItem('access_token');
+    
+    if (!accessToken) {
+      console.log('No access token found');
+      return null;
+    }
+
+    // Check if token is expired
+    if (this.isTokenExpired(accessToken)) {
+      console.log('Access token is expired, attempting refresh...');
+      const refreshResult = await this.refreshToken();
+      
+      if (refreshResult.success && refreshResult.data?.access_token) {
+        return refreshResult.data.access_token;
+      } else {
+        console.log('Token refresh failed, user needs to re-authenticate');
+        return null;
+      }
+    }
+
+    return accessToken;
   }
 
  

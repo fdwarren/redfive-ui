@@ -15,7 +15,6 @@ interface ResultsDetailsPanelProps {
 const ResultsDetailsPanel: React.FC<ResultsDetailsPanelProps> = ({ 
   results, 
   columns, 
-  rowCount, 
   isExecuting, 
   error, 
   selectedRow,

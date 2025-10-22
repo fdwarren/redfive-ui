@@ -1,5 +1,7 @@
-import React, { ReactNode, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -7,8 +9,7 @@ interface AuthGuardProps {
 }
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ 
-  children, 
-  fallback = null
+  children
 }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const googleSignInRef = useRef<HTMLDivElement>(null);
@@ -28,7 +29,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
               console.log('User info from JWT:', payload);
               
               // Send to your backend for authentication
-              const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+              const apiBase = getApiBaseUrl();
               fetch(`${apiBase}/auth/google`, {
                 method: 'POST',
                 headers: {
