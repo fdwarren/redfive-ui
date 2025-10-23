@@ -36,6 +36,20 @@ const ResultsDetailsPanel: React.FC<ResultsDetailsPanelProps> = ({
             <i className="bi bi-chevron-left"></i>
           </button>
         </div>
+        <div className="flex-grow-1 d-flex justify-content-center align-items-center">
+          <div 
+            style={{ 
+              writingMode: 'vertical-rl',
+              textOrientation: 'mixed',
+              transform: 'rotate(360deg)',
+              fontSize: '1rem',
+              fontWeight: '500',
+              color: '#aa0000'
+            }}
+          >
+            Details
+          </div>
+        </div>
       </div>
     );
   }
@@ -43,13 +57,14 @@ const ResultsDetailsPanel: React.FC<ResultsDetailsPanelProps> = ({
   return (
     <div className={`bg-light border-start d-flex flex-column h-100 ${className}`} style={{ height: '100%', overflow: 'hidden' }}>
       {/* Header with toggle button */}
-      <div className="border-bottom p-3 flex-shrink-0">
+      <div className="border-bottom flex-shrink-0" style={{ padding: 'calc(0.3125rem + 3px) 0.5rem' }}>
         <div className="d-flex justify-content-between align-items-center">
-          <h6 className="text-muted mb-0">
-            <i className="bi bi-info-circle me-2"></i>Results Details
-          </h6>
+          <small className="text-muted">
+            <i className="bi bi-info-circle me-1"></i>Details
+          </small>
           <button 
-            className="btn btn-sm btn-outline-secondary"
+            className="btn btn-sm"
+            style={{ backgroundColor: '#aa0000', borderColor: '#aa0000', color: 'white' }}
             onClick={onToggle}
             title="Collapse details panel"
           >
@@ -63,9 +78,6 @@ const ResultsDetailsPanel: React.FC<ResultsDetailsPanelProps> = ({
           {/* Selected Row Details */}
           {selectedRow && (
             <div>
-              <h6 className="text-muted mb-3">
-                <i className="bi bi-eye me-2"></i>Selected Row
-              </h6>
               <div className="table-responsive">
                 <table className="table table-sm table-striped" style={{ fontSize: '0.875rem' }}>
                   <tbody>

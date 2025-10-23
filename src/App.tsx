@@ -55,6 +55,7 @@ function App() {
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [selectedSchema, setSelectedSchema] = useState<string | null>(null);
   const [models, setModels] = useState<any[]>([]);
+  const [spatialColumns, setSpatialColumns] = useState<string[]>([]);
 
   const handleExecute = useCallback(async (selectedQuery?: string) => {
     const queryToExecute = selectedQuery || queryText;
@@ -69,7 +70,7 @@ function App() {
         setResults(response.data.data || []);
         setColumns(response.data.columns || []);
         setRowCount(response.data.row_count || 0);
-        setSelectedRowIndex(null); // Clear selected row when new results are loaded
+        // Don't clear selectedRowIndex - let ResultsTable handle default selection
         
         // Store metadata for analysis tab
         if (response.data.metadata) {
@@ -166,6 +167,10 @@ function App() {
     });
   }, []);
 
+  const handleSpatialColumnsLoaded = useCallback((spatialColumns: string[]) => {
+    setSpatialColumns(spatialColumns);
+  }, []);
+
   // Compute the selected row object for the details panel
   const selectedRow = useMemo(() => {
     return selectedRowIndex !== null ? results[selectedRowIndex] : null;
@@ -190,6 +195,7 @@ function App() {
               onSchemaSelect={handleSchemaSelect}
               onModelsLoaded={setModels}
               onGenerateSelect={handleGenerateSelect}
+              onSpatialColumnsLoaded={handleSpatialColumnsLoaded}
             />
           </div>
 
@@ -230,6 +236,7 @@ function App() {
                         selectedRowIndex={selectedRowIndex}
                         onRowSelect={setSelectedRowIndex}
                         metadata={executionMetadata}
+                        spatialColumns={spatialColumns}
                       />
                     </div>
                     

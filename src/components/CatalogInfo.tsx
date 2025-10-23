@@ -6,6 +6,7 @@ interface Column {
   type: string;
   description: string;
   nullable: boolean;
+  spatial_type?: string;
 }
 
 interface Table {
@@ -56,7 +57,7 @@ const CatalogInfo: React.FC<CatalogInfoProps> = ({
         </div>
         <div className="text-muted small">
           <span className="badge me-2" style={{ backgroundColor: '#aa0000', color: 'white' }}>{selectedTable.schema}</span>
-          <span className="badge" style={{ backgroundColor: '#f8f9fa', color: '#aa0000', border: '1px solid #aa0000' }}>{selectedTable.name}</span>
+          <span className="badge" style={{ backgroundColor: '#f8f9fa', color: '#aa0000', border: '1px solid #aa0000', padding: '0.25em 0.4em', fontSize: '0.75em', fontWeight: '700' }}>{selectedTable.name}</span>
         </div>
         {selectedTable.description && (
           <p className="mt-2" style={{ color: '#666' }}>{selectedTable.description}</p>
@@ -120,8 +121,15 @@ const CatalogInfo: React.FC<CatalogInfoProps> = ({
                       <div className="small" style={{ color: '#666' }}>{column.label}</div>
                     )}
                   </td>
-                  <td>
-                    <span className="badge" style={{ backgroundColor: '#aa0000', color: 'white' }}>{column.type}</span>
+                  <td style={{ verticalAlign: 'middle' }}>
+                    <div className="d-flex align-items-center">
+                      <span className="badge" style={{ backgroundColor: '#aa0000', color: 'white' }}>{column.type}</span>
+                      {column.spatial_type && column.spatial_type !== null && column.spatial_type !== '' && (
+                        <span className="badge ms-2" style={{ backgroundColor: 'transparent', color: '#aa0000', border: '1px solid #aa0000' }}>
+                          {column.spatial_type}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     {column.nullable ? (

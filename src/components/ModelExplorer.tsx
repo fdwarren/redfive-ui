@@ -8,9 +8,10 @@ interface ModelExplorerProps {
   onSchemaSelect?: (schema: string) => void;
   onModelsLoaded?: (models: any[]) => void;
   onGenerateSelect?: (table: any) => void;
+  onSpatialColumnsLoaded?: (spatialColumns: string[]) => void;
 }
 
-const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect }) => {
+const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect, onSpatialColumnsLoaded }) => {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'databases': true,
     'production': true,
@@ -82,6 +83,22 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
     return schemaMap;
   };
 
+  const extractSpatialColumns = (models: any[]): string[] => {
+    const spatialColumns: string[] = [];
+    
+    models.forEach(model => {
+      if (model.columns && Array.isArray(model.columns)) {
+        model.columns.forEach((column: any) => {
+          if (column.spatial_type && column.spatial_type !== null && column.spatial_type !== '') {
+            spatialColumns.push(column.name);
+          }
+        });
+      }
+    });
+    
+    return spatialColumns;
+  };
+
   // Memoize the schema organization to prevent unnecessary re-processing
   const schemaMap = useMemo(() => {
     if (models.length === 0) return {};
@@ -116,9 +133,18 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
         console.log('Extracted models array:', modelsArray);
         setModels(modelsArray);
         
+        // Extract spatial columns from models
+        const spatialColumns = extractSpatialColumns(modelsArray);
+        console.log('Extracted spatial columns:', spatialColumns);
+        
         // Notify parent component about loaded models
         if (onModelsLoaded) {
           onModelsLoaded(modelsArray);
+        }
+        
+        // Notify parent component about spatial columns
+        if (onSpatialColumnsLoaded) {
+          onSpatialColumnsLoaded(spatialColumns);
         }
         
         // Update expanded folders to include schemas
@@ -191,7 +217,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
 
   return (
     <div className={`bg-light border-end d-flex flex-column h-100 ${className}`} style={{ overflow: 'hidden' }}>
-      <div className="p-2 border-bottom" style={{ background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)' }}>
+      <div className="p-2 border-bottom panel-header" style={{ background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)' }}>
         <div className="d-flex justify-content-between align-items-center">
           <h6 className="text-muted mb-0 d-flex align-items-center">
             <i className="bi bi-folder me-2"></i>Model Explorer
@@ -304,7 +330,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                                     style={{ cursor: 'pointer' }}
                                   >
                                     <i className="bi bi-columns me-2"></i>
-                                    <span>{column.name}</span>
+                                    <span>{column.name}{column.spatial_type === 'point' ? <span style={{color: '#aa0000'}}>*</span> : column.spatial_type === 'polyline' ? <span style={{color: '#aa0000'}}>**</span> : column.spatial_type === 'polygon' ? <span style={{color: '#aa0000'}}>***</span> : ''}</span>
                                     <span className="text-muted small ms-2">({column.type})</span>
                                   </div>
                                 ))}

@@ -132,7 +132,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             <h1 className="display-4 fw-bold" style={{ color: '#aa0000' }}>
               <span>red</span><span style={{ fontStyle: 'italic', opacity: 0.9 }}>five</span>
             </h1>
-            <p className="lead text-muted">Data Analytics Platform</p>
+            <p className="lead text-muted">Data Analytics Workbench</p>
           </div>
           
           <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
@@ -153,7 +153,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             <h1 className="display-4 fw-bold" style={{ color: '#aa0000' }}>
               <span>red</span><span style={{ fontStyle: 'italic', opacity: 0.9 }}>five</span>
             </h1>
-            <p className="lead text-muted">Data Analytics Platform</p>
+            <p className="lead text-muted">Data Analytics Workbench</p>
           </div>
           
           <div className="card shadow-lg border-0" style={{ maxWidth: '400px', margin: '0 auto' }}>

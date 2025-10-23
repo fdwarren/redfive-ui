@@ -120,13 +120,27 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
             <i className="bi bi-chevron-left"></i>
           </button>
         </div>
+        <div className="flex-grow-1 d-flex justify-content-center align-items-center">
+          <div 
+            style={{ 
+              writingMode: 'vertical-rl',
+              textOrientation: 'mixed',
+              transform: 'rotate(360deg)',
+              fontSize: '1rem',
+              fontWeight: '500',
+              color: '#aa0000'
+            }}
+          >
+            AI Assistant
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className={`bg-light border-start d-flex flex-column h-100 ${className}`} style={{ height: '100%' }}>
-      <div className="p-2 border-bottom flex-shrink-0" style={{ background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)', borderBottomWidth: '2px' }}>
+      <div className="p-2 border-bottom flex-shrink-0 panel-header" style={{ background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)', borderBottomWidth: '2px' }}>
         <div className="d-flex justify-content-between align-items-center">
           <h6 className="text-muted mb-0 d-flex align-items-center">
             <i className="bi bi-chat-dots me-2"></i>AI Assistant

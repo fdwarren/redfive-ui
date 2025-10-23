@@ -320,6 +320,11 @@ html, body, #root {
   color: white;
 }
 
+/* Override for ResultsPanel tabs to prevent movement */
+.results-panel .tab-item.active {
+  transform: none;
+}
+
 /* Tab container */
 .tab-scroll-container {
   display: flex;
@@ -582,6 +587,12 @@ html, body, #root {
   }
 }
 
+/* Panel Header Label Alignment */
+.panel-header h6 {
+  line-height: 1.2;
+  transform: translateY(3px);
+}
+
 /* Custom scrollbar styling */
 /* Custom scrollbar styles - RED THEME */
 ::-webkit-scrollbar {
@@ -607,4 +618,17 @@ html, body, #root {
 * {
   scrollbar-width: thin;
   scrollbar-color: #aa0000 #f1f1f1;
+}
+
+/* Spatial Type Badge Styles */
+.spatial-type-pill {
+  background-color: transparent;
+  border: 1px solid #aa0000;
+  color: #aa0000;
+  padding: 0.25em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.75em;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-block;
 }

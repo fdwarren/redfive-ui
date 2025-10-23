@@ -7,6 +7,7 @@ interface Column {
   nullable: boolean;
   description?: string;
   schema: string;
+  spatial_type?: string;
 }
 
 interface SchemaDocumentationProps {
@@ -38,7 +39,8 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
             type: column.type || 'N/A',
             nullable: column.nullable || false,
             description: column.description,
-            schema: modelSchema
+            schema: modelSchema,
+            spatial_type: column.spatial_type
           });
         });
       }
@@ -142,15 +144,22 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
                   <td>
                     <code style={{ color: '#aa0000' }}>{column.name}</code>
                   </td>
-                  <td>
-                    <span className="badge" style={{ backgroundColor: '#f8f9fa', color: '#aa0000', border: '1px solid #aa0000' }}>
+                  <td style={{ verticalAlign: 'middle' }}>
+                    <span className="badge" style={{ backgroundColor: '#f8f9fa', color: '#aa0000', border: '1px solid #aa0000', padding: '0.25em 0.4em', fontSize: '0.75em', fontWeight: '700' }}>
                       {column.table}
                     </span>
                   </td>
-                  <td>
-                    <span className="badge" style={{ backgroundColor: '#aa0000', color: 'white' }}>
-                      {column.type}
-                    </span>
+                  <td style={{ verticalAlign: 'middle' }}>
+                    <div className="d-flex align-items-center">
+                      <span className="badge" style={{ backgroundColor: '#aa0000', color: 'white' }}>
+                        {column.type}
+                      </span>
+                      {column.spatial_type && column.spatial_type !== null && column.spatial_type !== '' && (
+                        <span className="badge ms-2" style={{ backgroundColor: 'transparent', color: '#aa0000', border: '1px solid #aa0000' }}>
+                          {column.spatial_type}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     {column.nullable ? (

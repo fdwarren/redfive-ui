@@ -35,7 +35,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   className = ''
 }) => {
   const [tabs, setTabs] = useState<Tab[]>([
-    { id: 'docs', name: '📋 Docs', content: '', isDirty: false },
+    { id: 'docs', name: '📋 Models', content: '', isDirty: false },
     { id: '1', name: 'Query 1', content: '', isDirty: false }
   ]);
   const prevQueryLength = React.useRef(0);
