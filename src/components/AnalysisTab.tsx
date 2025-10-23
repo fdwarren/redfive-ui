@@ -50,7 +50,7 @@ const AnalysisTab: React.FC<AnalysisTabProps> = ({
   const chartOptions = useMemo(() => {
     if (!chartConfig || !queryResults || queryResults.length === 0) return null;
 
-    const { chart_type, x_key, y_key, series_key, series, filteredData, selectedSeriesValues } = chartConfig;
+    const { chart_type, x_key, y_key, series_key, filteredData, selectedSeriesValues } = chartConfig;
 
     // Use filtered data if available, otherwise fall back to all query results
     const dataToUse = filteredData && filteredData.length > 0 ? filteredData : queryResults;
@@ -71,7 +71,7 @@ const AnalysisTab: React.FC<AnalysisTabProps> = ({
       // Group data by series_key values
       const groupedData: { [key: string]: any[] } = {};
       
-      (dataToUse || []).forEach(row => {
+      (dataToUse || []).forEach((row: { [x: string]: any; }) => {
         const seriesValue = row[series_key];
         if (seriesValue !== null && seriesValue !== undefined) {
           // Only include series values that are selected (if filtering is applied)
@@ -168,7 +168,7 @@ const AnalysisTab: React.FC<AnalysisTabProps> = ({
         }
       ],
       legend: {
-        enabled: series.length > 1,
+        enabled: seriesConfig.length > 1,
         item: {
           marker: {
             shape: 'square',
@@ -196,7 +196,7 @@ const AnalysisTab: React.FC<AnalysisTabProps> = ({
             {chartOptions ? (
               <div ref={chartContainerRef} className="flex-grow-1" style={{ width: '100%', height: '100%', position: 'relative' }}>
                 <div style={{ width: '100%', height: '100%' }}>
-                  <AgCharts options={chartOptions} />
+                  <AgCharts options={chartOptions as any} />
                 </div>
               </div>
             ) : (
