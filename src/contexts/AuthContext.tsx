@@ -34,8 +34,32 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   useEffect(() => {
+    // Check if Google Identity Services is already loaded
+    if (window.google && window.google.accounts) {
+      console.log('Google Identity Services already loaded');
+      setIsLoading(false);
+      return;
+    }
+
+    // Check if script is already being loaded
+    const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existingScript) {
+      console.log('Google Identity Services script already exists, waiting for load...');
+      const checkGoogleLoaded = () => {
+        if (window.google && window.google.accounts) {
+          console.log('Google Identity Services loaded successfully');
+          setIsLoading(false);
+        } else {
+          setTimeout(checkGoogleLoaded, 100);
+        }
+      };
+      checkGoogleLoaded();
+      return;
+    }
+
     // Check if Google Identity Services is loaded
     const checkGoogleLoaded = () => {
       if (window.google && window.google.accounts) {
@@ -146,6 +170,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = () => {
     console.log('Login button clicked');
     
+    // Prevent multiple login attempts
+    if (isLoggingIn) {
+      console.log('Login already in progress, ignoring duplicate request');
+      return;
+    }
+    
     if (!window.google || !window.google.accounts) {
       console.error('Google Identity Services not loaded');
       return;
@@ -154,15 +184,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     console.log('Client ID:', clientId);
     
-    if (!clientId) {
-      console.error('Google Client ID not configured');
+    if (!clientId || clientId === 'your_google_client_id_here') {
+      console.error('Google Client ID not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env file');
+      alert('Google OAuth is not configured. Please set up your Google OAuth Client ID in the .env file.');
       return;
     }
 
+    setIsLoggingIn(true);
     console.log('Initializing Google OAuth client...');
     
     // Use redirect-based flow to avoid popup blockers
-    window.google.accounts.oauth2.initTokenClient({
+    const oauthClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: 'openid profile email',
       ux_mode: 'redirect',
@@ -206,16 +238,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 } else {
                   console.error('Server authentication failed:', authResponse);
                 }
+                setIsLoggingIn(false);
               });
             })
             .catch(error => {
               console.error('Error during authentication:', error);
+              setIsLoggingIn(false);
             });
         } else {
           console.error('No access token in response:', response);
+          setIsLoggingIn(false);
         }
       }
-    }).requestAccessToken();
+    });
+    
+    oauthClient.requestAccessToken();
   };
 
   const refreshToken = async (): Promise<boolean> => {
@@ -280,7 +317,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
     
     setUser(null);
+    setIsLoggingIn(false);
     localStorage.removeItem('user');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     
     // Revoke Google token if available
     if (window.google && window.google.accounts) {

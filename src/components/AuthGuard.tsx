@@ -13,11 +13,25 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
 }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const googleSignInRef = useRef<HTMLDivElement>(null);
+  const isInitialized = useRef(false);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && window.google && window.google.accounts) {
+    // Prevent multiple initializations
+    if (isInitialized.current) {
+      return;
+    }
+
+    // Only initialize when we have all required conditions
+    if (!isLoading && !isAuthenticated && window.google && window.google.accounts && googleSignInRef.current) {
       const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-      if (clientId && googleSignInRef.current) {
+      if (clientId && clientId !== 'your_google_client_id_here') {
+        isInitialized.current = true;
+        
+        // Clear any existing button first
+        if (googleSignInRef.current) {
+          googleSignInRef.current.innerHTML = '';
+        }
+
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: (response: any) => {
@@ -86,9 +100,29 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
           text: 'signin_with',
           shape: 'rectangular'
         });
+      } else {
+        // Show error message when client ID is not configured
+        if (googleSignInRef.current) {
+          googleSignInRef.current.innerHTML = `
+            <div class="alert alert-warning" role="alert">
+              <h6 class="alert-heading">Google OAuth Not Configured</h6>
+              <p class="mb-0">Please set up your Google OAuth Client ID in the .env file.</p>
+              <hr>
+              <p class="mb-0 small">See GOOGLE_AUTH_SETUP.md for instructions.</p>
+            </div>
+          `;
+        }
       }
     }
-  }, [isLoading, isAuthenticated]);
+  }, [isLoading, isAuthenticated]); // Keep dependencies minimal
+
+  // Cleanup function
+  useEffect(() => {
+    return () => {
+      // Reset initialization flag when component unmounts
+      isInitialized.current = false;
+    };
+  }, []);
 
   if (isLoading) {
     return (

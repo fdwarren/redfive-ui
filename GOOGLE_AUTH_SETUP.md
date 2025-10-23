@@ -13,11 +13,27 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
-3. Enable the Google+ API
+3. Enable the Google+ API and Google Identity Services
 4. Go to "Credentials" in the API & Services section
 5. Create OAuth 2.0 Client IDs
-6. Set the authorized JavaScript origins to include your development server (e.g., `http://localhost:5173`)
+6. **IMPORTANT**: Set the authorized JavaScript origins to include:
+   - `http://localhost:5173` (for development)
+   - `http://localhost:3000` (alternative dev port)
+   - Your production domain (e.g., `https://yourdomain.com`)
 7. Copy the Client ID to your `.env` file
+
+### Common Issues and Solutions
+
+**Error: "The given origin is not allowed for the given client ID"**
+- This means your current domain is not in the authorized origins list
+- Add your current domain to the authorized JavaScript origins in Google Cloud Console
+- For local development, make sure `http://localhost:5173` is added
+- For production, add your actual domain
+
+**Error: "Google OAuth is not configured"**
+- Create a `.env` file in your project root
+- Add: `VITE_GOOGLE_CLIENT_ID=your_actual_client_id_here`
+- Restart your development server after adding the environment variable
 
 ## Features Implemented
 
