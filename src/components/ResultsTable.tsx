@@ -88,8 +88,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
         <div className="flex-grow-1" style={{ 
           overflowY: 'auto',
           overflowX: 'auto',
-          height: 'calc(100% - 60px)',
-          maxHeight: 'calc(100% - 60px)',
+          height: '100%',
           scrollbarWidth: 'thin'
         }}>
           <table className="table table-striped table-hover table-sm" style={{ whiteSpace: 'nowrap', fontSize: '0.875rem' }}>

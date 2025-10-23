@@ -8,6 +8,7 @@ interface Column {
   description?: string;
   schema: string;
   spatial_type?: string;
+  semantic_role?: string;
 }
 
 interface SchemaDocumentationProps {
@@ -40,7 +41,8 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
             nullable: column.nullable || false,
             description: column.description,
             schema: modelSchema,
-            spatial_type: column.spatial_type
+            spatial_type: column.spatial_type,
+            semantic_role: column.semantic_role
           });
         });
       }
@@ -134,6 +136,7 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Column</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Table</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Type</th>
+                <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Semantic Role</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Nullable</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Description</th>
               </tr>
@@ -160,6 +163,15 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td style={{ verticalAlign: 'middle' }}>
+                    {column.semantic_role && column.semantic_role !== null && column.semantic_role !== '' ? (
+                      <span className="badge" style={{ backgroundColor: '#f8f9fa', color: '#aa0000', border: '1px solid #aa0000' }}>
+                        {column.semantic_role}
+                      </span>
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
                   </td>
                   <td>
                     {column.nullable ? (

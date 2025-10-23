@@ -29,6 +29,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
   className = '' 
 }) => {
   const [activeTab, setActiveTab] = useState('table');
+  const [chartConfig, setChartConfig] = useState<any>(null);
 
   // Check if any spatial columns are present in the query results
   const hasSpatialData = spatialColumns.some(spatialCol => 
@@ -63,7 +64,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
             onClick={() => setActiveTab('analysis')}
           >
             <span className="tab-name">
-              <i className="bi bi-graph-up me-1"></i>Analysis
+              <i className="bi bi-graph-up me-1"></i>Chart
             </span>
           </div>
           {hasSpatialData && (
@@ -81,7 +82,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
 
       {/* Tab Content */}
       <div className="flex-grow-1 d-flex flex-column" style={{ height: '100%', overflow: 'hidden' }}>
-        {activeTab === 'table' && (
+        <div style={{ display: activeTab === 'table' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
           <ResultsTable
             results={results}
             columns={columns}
@@ -91,14 +92,22 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
             selectedRowIndex={selectedRowIndex}
             onRowSelect={onRowSelect}
           />
-        )}
+        </div>
 
-        {activeTab === 'analysis' && (
-          <AnalysisTab metadata={metadata} />
-        )}
+        <div style={{ display: activeTab === 'analysis' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
+          <AnalysisTab 
+            metadata={metadata} 
+            queryResults={results} 
+            columns={columns}
+            chartConfig={chartConfig}
+            onChartConfigChange={setChartConfig}
+          />
+        </div>
 
-        {activeTab === 'map' && hasSpatialData && (
-          <MapTab results={results} columns={columns} onRowSelect={onRowSelect} selectedRowIndex={selectedRowIndex} />
+        {hasSpatialData && (
+          <div style={{ display: activeTab === 'map' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
+            <MapTab results={results} columns={columns} onRowSelect={onRowSelect} selectedRowIndex={selectedRowIndex} />
+          </div>
         )}
       </div>
     </div>

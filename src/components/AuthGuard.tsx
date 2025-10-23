@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getApiBaseUrl } from '../utils/apiConfig';
@@ -14,6 +14,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
   const { isAuthenticated, isLoading } = useAuth();
   const googleSignInRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   useEffect(() => {
     // Prevent multiple initializations
@@ -38,6 +39,9 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
             console.log('Google Sign-In response:', response);
             // Handle the credential response
             if (response.credential) {
+              // Set authenticating state to show progress indicator
+              setIsAuthenticating(true);
+              
               // Decode the JWT token to get user info
               const payload = JSON.parse(atob(response.credential.split('.')[1]));
               console.log('User info from JWT:', payload);
@@ -89,6 +93,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
                 }
               }).catch(error => {
                 console.error('Authentication error:', error);
+                setIsAuthenticating(false);
               });
             }
           }
@@ -140,6 +145,27 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
           </div>
           <h4>Initializing...</h4>
           <p className="text-muted">Setting up authentication</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticating) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh', backgroundColor: '#f8f9fa' }}>
+        <div className="text-center">
+          <div className="mb-4">
+            <h1 className="display-4 fw-bold" style={{ color: '#aa0000' }}>
+              <span>red</span><span style={{ fontStyle: 'italic', opacity: 0.9 }}>five</span>
+            </h1>
+            <p className="lead text-muted">Data Analytics Workbench</p>
+          </div>
+          
+          <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <h4>Authenticating...</h4>
+          <p className="text-muted">Please wait while we verify your identity</p>
         </div>
       </div>
     );

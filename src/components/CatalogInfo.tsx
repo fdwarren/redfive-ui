@@ -7,6 +7,7 @@ interface Column {
   description: string;
   nullable: boolean;
   spatial_type?: string;
+  semantic_role?: string;
 }
 
 interface Table {
@@ -102,6 +103,7 @@ const CatalogInfo: React.FC<CatalogInfoProps> = ({
               <tr>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Name</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Type</th>
+                <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Semantic Role</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Nullable</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Description</th>
               </tr>
@@ -130,6 +132,15 @@ const CatalogInfo: React.FC<CatalogInfoProps> = ({
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td style={{ verticalAlign: 'middle' }}>
+                    {column.semantic_role && column.semantic_role !== null && column.semantic_role !== '' ? (
+                      <span className="badge" style={{ backgroundColor: '#f8f9fa', color: '#aa0000', border: '1px solid #aa0000' }}>
+                        {column.semantic_role}
+                      </span>
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
                   </td>
                   <td>
                     {column.nullable ? (
