@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
+import { Editor } from '@monaco-editor/react';
 import SchemaDocumentation from './SchemaDocumentation';
 import type { Tab } from '../../types';
 
@@ -13,6 +14,7 @@ interface QueryEditorProps {
   models?: any[];
   onTabSwitch?: (tabId: string) => void;
   onActiveTabChange?: (tabId: string) => void;
+  activeTabId?: string;
   className?: string;
 }
 
@@ -27,15 +29,18 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   models = [],
   onTabSwitch,
   onActiveTabChange,
+  activeTabId: propActiveTabId = '1',
   className = ''
 }) => {
+  console.log('QueryEditor render, models:', models?.length || 0, models);
   const [tabs, setTabs] = useState<Tab[]>([
     { id: 'docs', name: '📋 Models', content: '', isDirty: false },
     { id: '1', name: 'Query 1', content: '', isDirty: false }
   ]);
   const prevQueryLength = React.useRef(0);
-  const [activeTabId, setActiveTabId] = useState('1');
+  const activeTabId = propActiveTabId;
   const [tabCounter, setTabCounter] = useState(2);
+  const editorRef = useRef<any>(null);
 
   // Sync queryText prop changes with active tab content (only when queryText actually changes)
   useEffect(() => {
@@ -51,14 +56,195 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     // Check if the query text has grown significantly (indicating new SQL was added)
     if (queryText && queryText.length > prevQueryLength.current && queryText.length - prevQueryLength.current > 10) {
       setTimeout(() => {
-        const textarea = document.querySelector('.query-editor-textarea') as HTMLTextAreaElement;
-        if (textarea) {
-          textarea.scrollTop = textarea.scrollHeight;
+        if (editorRef.current) {
+          const lineCount = editorRef.current.getModel()?.getLineCount() || 1;
+          editorRef.current.revealLine(lineCount);
         }
       }, 100);
     }
     prevQueryLength.current = queryText.length;
   }, [queryText]); // Removed activeTabId from dependencies
+
+  // Recreate completion provider when models change
+  React.useEffect(() => {
+    if (editorRef.current && models.length > 0) {
+      // Dispose the old completion provider if it exists
+      if (editorRef.current.completionProvider) {
+        editorRef.current.completionProvider.dispose();
+        editorRef.current.completionProvider = null;
+      }
+      
+      // Create new completion provider with current models
+      const monaco = (window as any).monaco;
+      if (monaco) {
+        const newCompletionProvider = monaco.languages.registerCompletionItemProvider('sql', {
+          triggerCharacters: [' ', '.', ',', '(', ')', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'],
+          provideCompletionItems: (model: any, position: any) => {
+            const word = model.getWordUntilPosition(position);
+            const range = {
+              startLineNumber: position.lineNumber,
+              endLineNumber: position.lineNumber,
+              startColumn: word.startColumn,
+              endColumn: word.endColumn
+            };
+
+            const suggestions: any[] = [];
+
+            // Add SQL keywords
+            const sqlKeywords = [
+              { label: 'SELECT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'SELECT', documentation: 'Select data from tables' },
+              { label: 'FROM', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'FROM', documentation: 'Specify the source table(s)' },
+              { label: 'WHERE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'WHERE', documentation: 'Filter rows based on conditions' },
+              { label: 'INSERT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'INSERT', documentation: 'Insert new rows into a table' },
+              { label: 'UPDATE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'UPDATE', documentation: 'Modify existing rows' },
+              { label: 'DELETE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DELETE', documentation: 'Remove rows from a table' },
+              { label: 'CREATE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'CREATE', documentation: 'Create database objects' },
+              { label: 'DROP', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DROP', documentation: 'Remove database objects' },
+              { label: 'ALTER', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ALTER', documentation: 'Modify database objects' },
+              { label: 'JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'JOIN', documentation: 'Join tables together' },
+              { label: 'INNER JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'INNER JOIN', documentation: 'Inner join tables' },
+              { label: 'LEFT JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LEFT JOIN', documentation: 'Left outer join tables' },
+              { label: 'RIGHT JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'RIGHT JOIN', documentation: 'Right outer join tables' },
+              { label: 'ORDER BY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ORDER BY', documentation: 'Sort the result set' },
+              { label: 'GROUP BY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'GROUP BY', documentation: 'Group rows by columns' },
+              { label: 'HAVING', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'HAVING', documentation: 'Filter groups' },
+              { label: 'UNION', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'UNION', documentation: 'Combine result sets' },
+              { label: 'DISTINCT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DISTINCT', documentation: 'Remove duplicate rows' },
+              { label: 'LIMIT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LIMIT', documentation: 'Limit the number of rows returned' },
+              { label: 'OFFSET', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'OFFSET', documentation: 'Skip a number of rows' }
+            ];
+
+            sqlKeywords.forEach(keyword => {
+              suggestions.push({
+                ...keyword,
+                range: range
+              });
+            });
+
+            // Get the text before the current position to analyze context
+            const textBeforePosition = model.getValueInRange({
+              startLineNumber: 1,
+              startColumn: 1,
+              endLineNumber: position.lineNumber,
+              endColumn: position.column
+            });
+
+            // Check if we're in a dot notation context (table.column or alias.column)
+            const dotNotationMatch = textBeforePosition.match(/([a-zA-Z_$][\w$]*)\s*\.\s*$/i);
+            let isColumnContext = false;
+            let targetTableName = null;
+            let targetAlias = null;
+
+            console.log('Text before position:', textBeforePosition);
+            console.log('Dot notation match:', dotNotationMatch);
+
+            if (dotNotationMatch) {
+              const identifier = dotNotationMatch[1];
+              isColumnContext = true;
+              
+              // Check if this is a table alias by looking for FROM/JOIN clauses
+              const aliasMap = new Map<string, string>();
+              
+              // Find all FROM and JOIN clauses to build alias mapping
+              const fromJoinMatches = textBeforePosition.matchAll(/(?:FROM|JOIN)\s+([a-zA-Z_$][\w$]*\.?[a-zA-Z_$][\w$]*)\s+(?:AS\s+)?([a-zA-Z_$][\w$]*)/gi);
+              for (const match of fromJoinMatches) {
+                const tableName = match[1];
+                const alias = match[2];
+                aliasMap.set(alias, tableName);
+                console.log('Found alias mapping:', alias, '->', tableName);
+              }
+              
+              if (aliasMap.has(identifier)) {
+                targetAlias = identifier;
+                targetTableName = aliasMap.get(identifier);
+                console.log('Column context detected for alias:', identifier, '-> table:', targetTableName);
+              } else {
+                targetTableName = identifier;
+                console.log('Column context detected for table:', identifier);
+              }
+            }
+
+            // Add table suggestions if models are available and not in column context
+            if (models && models.length > 0 && !isColumnContext) {
+              console.log('Models available for completion:', models.length);
+              models.forEach((model: any) => {
+                const schema = model.schema || model.schema_name || model.database_schema || 'default';
+                const tableName = model.name || model.table_name;
+                
+                if (tableName) {
+                  suggestions.push({
+                    label: tableName,
+                    kind: monaco.languages.CompletionItemKind.Class,
+                    insertText: tableName,
+                    documentation: `Table: ${tableName} (Schema: ${schema})`,
+                    detail: `Table in ${schema} schema`,
+                    range: range
+                  });
+
+                  // Also suggest with schema prefix
+                  suggestions.push({
+                    label: `${schema}.${tableName}`,
+                    kind: monaco.languages.CompletionItemKind.Class,
+                    insertText: `${schema}.${tableName}`,
+                    documentation: `Table: ${tableName} (Schema: ${schema})`,
+                    detail: `Fully qualified table name`,
+                    range: range
+                  });
+                }
+              });
+            }
+
+            // Add column suggestions if we're in a column context
+            if (isColumnContext && targetTableName && models && models.length > 0) {
+              console.log('Looking for columns in table:', targetTableName, 'Alias:', targetAlias);
+              console.log('Available models:', models.map(m => ({ name: m.name || m.table_name, hasColumns: !!m.columns })));
+              
+              const targetModel = models.find((model: any) => {
+                const schema = model.schema || model.schema_name || model.database_schema || 'default';
+                const tableName = model.name || model.table_name;
+                console.log('Checking model:', { tableName, schema, targetTableName });
+                return tableName === targetTableName || `${schema}.${tableName}` === targetTableName;
+              });
+              
+              console.log('Target model found:', targetModel);
+              
+              if (targetModel && targetModel.columns && Array.isArray(targetModel.columns)) {
+                console.log('Found columns for table:', targetModel.columns.length, targetModel.columns);
+                targetModel.columns.forEach((column: any) => {
+                  suggestions.push({
+                    label: column.name,
+                    kind: monaco.languages.CompletionItemKind.Field,
+                    insertText: column.name,
+                    documentation: `Column: ${column.name} (Type: ${column.type})${targetAlias ? ` from alias ${targetAlias}` : ''}`,
+                    detail: `${column.type}${column.nullable ? ' (nullable)' : ' (not null)'}`,
+                    range: range
+                  });
+                });
+              } else {
+                console.log('No columns found for table:', targetTableName, 'Target model:', targetModel);
+              }
+            }
+
+            if (!models || models.length === 0) {
+              console.log('No models available for completion');
+            }
+
+            return { suggestions };
+          }
+        });
+        
+        editorRef.current.completionProvider = newCompletionProvider;
+      }
+    }
+    
+    // Cleanup function to dispose completion provider when component unmounts
+    return () => {
+      if (editorRef.current && editorRef.current.completionProvider) {
+        editorRef.current.completionProvider.dispose();
+        editorRef.current.completionProvider = null;
+      }
+    };
+  }, [models]);
 
   // Keep docs tab name as "docs" - no need to update based on selected table
 
@@ -84,7 +270,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       isDirty: false
     };
     setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
     setTabCounter(prev => prev + 1);
     
     // Notify parent component about the new tab
@@ -112,7 +297,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
         isDirty: false
       };
       setTabs(prev => [...prev.filter(tab => tab.id === 'docs'), newTab]);
-      setActiveTabId(newTab.id);
       setTabCounter(prev => prev + 1);
       onQueryChange('');
       
@@ -135,7 +319,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       const currentIndex = tabs.findIndex(tab => tab.id === tabId);
       const newActiveIndex = currentIndex > 0 ? currentIndex - 1 : 0;
       const newActiveTabId = newTabs[newActiveIndex].id;
-      setActiveTabId(newActiveTabId);
       
       // Notify parent component about the tab switch
       if (onTabSwitch) {
@@ -149,7 +332,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   };
 
   const switchTab = (tabId: string) => {
-    setActiveTabId(tabId);
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       onQueryChange(tab.content);
@@ -174,12 +356,10 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   };
 
   const getSelectedText = (): string | null => {
-    const textarea = document.querySelector('.query-editor-textarea') as HTMLTextAreaElement;
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      if (start !== end) {
-        return textarea.value.substring(start, end).trim();
+    if (editorRef.current) {
+      const selection = editorRef.current.getSelection();
+      if (selection && !selection.isEmpty()) {
+        return editorRef.current.getModel()?.getValueInRange(selection) || null;
       }
     }
     return null;
@@ -191,8 +371,9 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       // Execute only the selected text
       onExecute(selectedText, activeTabId);
     } else {
-      // Execute the entire query
-      onExecute(undefined, activeTabId);
+      // Execute the entire content of the Monaco editor
+      const editorValue = editorRef.current?.getValue() || '';
+      onExecute(editorValue, activeTabId);
     }
   }, [onExecute, activeTabId]);
 
@@ -287,7 +468,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
         isDirty: false
       };
       setTabs(prev => [...prev, newTab]);
-      setActiveTabId(newTab.id);
       setTabCounter(prev => prev + 1);
       
       // Notify parent component about active tab change
@@ -308,7 +488,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       isDirty: false
     };
     setTabs([docsTab, newTab].filter((tab): tab is Tab => tab !== undefined));
-    setActiveTabId(newTab.id);
     setTabCounter(prev => prev + 1);
     onQueryChange('');
     
@@ -326,7 +505,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       // Always keep the Docs tab, plus the selected tab (if it's not the Docs tab)
       const tabsToKeep = tabId === 'docs' ? [docsTab] : [docsTab, tab];
       setTabs(tabsToKeep.filter((tab): tab is Tab => tab !== undefined));
-      setActiveTabId(tabId);
       
       // Notify parent component about active tab change
       if (onActiveTabChange) {
@@ -346,7 +524,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       newTabs.unshift(docsTab);
     }
     setTabs(newTabs);
-    setActiveTabId(tabId);
     
     // Notify parent component about active tab change
     if (onActiveTabChange) {
@@ -480,17 +657,310 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
             />
           </div>
         ) : (
-          <div className="p-3 d-flex flex-column flex-grow-1">
-            <textarea
-              className="form-control font-monospace flex-grow-1 query-editor-textarea"
+          <div className="flex-grow-1" style={{ height: '100%', overflow: 'hidden' }}>
+            <Editor
+              height="100%"
+              language="sql"
               value={activeTab?.content || ''}
-              onChange={(e) => updateTabContent(e.target.value)}
-              placeholder="Enter your SQL query here or use the AI Assistant to generate it for you."
-              style={{ 
-                resize: 'none',
-                overflow: 'auto',
-                scrollbarWidth: 'thin'
+              onChange={(value) => updateTabContent(value || '')}
+              onMount={(editor, monaco) => {
+                editorRef.current = editor;
+                
+                // Configure SQL language features
+                monaco.languages.register({ id: 'sql' });
+                
+                // Add SQL keywords and syntax highlighting
+                monaco.languages.setMonarchTokensProvider('sql', {
+                  tokenizer: {
+                    root: [
+                      [/[a-zA-Z_$][\w$]*/, {
+                        cases: {
+                          '@keywords': 'keyword',
+                          '@default': 'identifier'
+                        }
+                      }],
+                      [/\d*\.\d+([eE][\-+]?\d+)?[fFdD]?/, 'number.float'],
+                      [/0[xX][0-9a-fA-F]+[Ll]?/, 'number.hex'],
+                      [/\d+[lL]?/, 'number'],
+                      [/[;,.]/, 'delimiter'],
+                      [/"/, 'string', '@string_double'],
+                      [/'/, 'string', '@string_single'],
+                      [/\/\*/, 'comment', '@comment'],
+                      [/--.*$/, 'comment'],
+                    ],
+                    string_double: [
+                      [/[^\\"]+/, 'string'],
+                      [/\\./, 'string.escape'],
+                      [/"/, 'string', '@pop']
+                    ],
+                    string_single: [
+                      [/[^\\']+/, 'string'],
+                      [/\\./, 'string.escape'],
+                      [/'/, 'string', '@pop']
+                    ],
+                    comment: [
+                      [/[^\/*]+/, 'comment'],
+                      [/\*\//, 'comment', '@pop'],
+                      [/[\/*]/, 'comment']
+                    ]
+                  },
+                  keywords: [
+                    'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER',
+                    'TABLE', 'INDEX', 'VIEW', 'PROCEDURE', 'FUNCTION', 'TRIGGER', 'DATABASE', 'SCHEMA',
+                    'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'ON', 'AS', 'AND', 'OR', 'NOT', 'IN',
+                    'EXISTS', 'BETWEEN', 'LIKE', 'IS', 'NULL', 'ORDER', 'BY', 'GROUP', 'HAVING',
+                    'UNION', 'ALL', 'DISTINCT', 'TOP', 'LIMIT', 'OFFSET', 'ASC', 'DESC',
+                    'INT', 'VARCHAR', 'CHAR', 'TEXT', 'DECIMAL', 'FLOAT', 'DOUBLE', 'DATE', 'TIME',
+                    'DATETIME', 'TIMESTAMP', 'BOOLEAN', 'BLOB', 'JSON'
+                  ]
+                });
+
+                // Store completion provider reference for cleanup
+                const completionProvider = monaco.languages.registerCompletionItemProvider('sql', {
+                  triggerCharacters: [' ', '.', ',', '(', ')', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'],
+                  provideCompletionItems: (model, position) => {
+                    const word = model.getWordUntilPosition(position);
+                    const range = {
+                      startLineNumber: position.lineNumber,
+                      endLineNumber: position.lineNumber,
+                      startColumn: word.startColumn,
+                      endColumn: word.endColumn
+                    };
+
+                    const suggestions: any[] = [];
+
+                    // Add SQL keywords
+                    const sqlKeywords = [
+                      { label: 'SELECT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'SELECT', documentation: 'Select data from tables' },
+                      { label: 'FROM', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'FROM', documentation: 'Specify the source table(s)' },
+                      { label: 'WHERE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'WHERE', documentation: 'Filter rows based on conditions' },
+                      { label: 'INSERT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'INSERT', documentation: 'Insert new rows into a table' },
+                      { label: 'UPDATE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'UPDATE', documentation: 'Modify existing rows' },
+                      { label: 'DELETE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DELETE', documentation: 'Remove rows from a table' },
+                      { label: 'CREATE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'CREATE', documentation: 'Create database objects' },
+                      { label: 'DROP', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DROP', documentation: 'Remove database objects' },
+                      { label: 'ALTER', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ALTER', documentation: 'Modify database objects' },
+                      { label: 'JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'JOIN', documentation: 'Join tables together' },
+                      { label: 'INNER JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'INNER JOIN', documentation: 'Inner join tables' },
+                      { label: 'LEFT JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LEFT JOIN', documentation: 'Left outer join tables' },
+                      { label: 'RIGHT JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'RIGHT JOIN', documentation: 'Right outer join tables' },
+                      { label: 'ORDER BY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ORDER BY', documentation: 'Sort the result set' },
+                      { label: 'GROUP BY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'GROUP BY', documentation: 'Group rows by columns' },
+                      { label: 'HAVING', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'HAVING', documentation: 'Filter groups' },
+                      { label: 'UNION', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'UNION', documentation: 'Combine result sets' },
+                      { label: 'DISTINCT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DISTINCT', documentation: 'Remove duplicate rows' },
+                      { label: 'LIMIT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LIMIT', documentation: 'Limit the number of rows returned' },
+                      { label: 'OFFSET', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'OFFSET', documentation: 'Skip a number of rows' }
+                    ];
+
+                    sqlKeywords.forEach(keyword => {
+                      suggestions.push({
+                        ...keyword,
+                        range: range
+                      });
+                    });
+
+                    // Get the text before the current position to analyze context
+                    const textBeforePosition = model.getValueInRange({
+                      startLineNumber: 1,
+                      startColumn: 1,
+                      endLineNumber: position.lineNumber,
+                      endColumn: position.column
+                    });
+
+                    // Check if we're in a dot notation context (table.column or alias.column)
+                    const dotNotationMatch = textBeforePosition.match(/([a-zA-Z_$][\w$]*)\s*\.\s*$/i);
+                    let isColumnContext = false;
+                    let targetTableName = null;
+                    let targetAlias = null;
+
+                    console.log('Text before position:', textBeforePosition);
+                    console.log('Dot notation match:', dotNotationMatch);
+
+                    if (dotNotationMatch) {
+                      const identifier = dotNotationMatch[1];
+                      isColumnContext = true;
+                      
+                      // Check if this is a table alias by looking for FROM/JOIN clauses
+                      const aliasMap = new Map<string, string>();
+                      
+                      // Find all FROM and JOIN clauses to build alias mapping
+                      const fromJoinMatches = textBeforePosition.matchAll(/(?:FROM|JOIN)\s+([a-zA-Z_$][\w$]*\.?[a-zA-Z_$][\w$]*)\s+(?:AS\s+)?([a-zA-Z_$][\w$]*)/gi);
+                      for (const match of fromJoinMatches) {
+                        const tableName = match[1];
+                        const alias = match[2];
+                        aliasMap.set(alias, tableName);
+                        console.log('Found alias mapping:', alias, '->', tableName);
+                      }
+                      
+                      if (aliasMap.has(identifier)) {
+                        targetAlias = identifier;
+                        targetTableName = aliasMap.get(identifier);
+                        console.log('Column context detected for alias:', identifier, '-> table:', targetTableName);
+                      } else {
+                        targetTableName = identifier;
+                        console.log('Column context detected for table:', identifier);
+                      }
+                    }
+
+                    // Add table suggestions if models are available and not in column context
+                    if (models && models.length > 0 && !isColumnContext) {
+                      console.log('Models available for completion:', models.length);
+                      models.forEach((model: any) => {
+                        const schema = model.schema || model.schema_name || model.database_schema || 'default';
+                        const tableName = model.name || model.table_name;
+                        
+                        if (tableName) {
+                          suggestions.push({
+                            label: tableName,
+                            kind: monaco.languages.CompletionItemKind.Class,
+                            insertText: tableName,
+                            documentation: `Table: ${tableName} (Schema: ${schema})`,
+                            detail: `Table in ${schema} schema`,
+                            range: range
+                          });
+
+                          // Also suggest with schema prefix
+                          suggestions.push({
+                            label: `${schema}.${tableName}`,
+                            kind: monaco.languages.CompletionItemKind.Class,
+                            insertText: `${schema}.${tableName}`,
+                            documentation: `Table: ${tableName} (Schema: ${schema})`,
+                            detail: `Fully qualified table name`,
+                            range: range
+                          });
+                        }
+                      });
+                    }
+
+                    // Add column suggestions if we're in a column context
+                    if (isColumnContext && targetTableName && models && models.length > 0) {
+                      console.log('Looking for columns in table:', targetTableName, 'Alias:', targetAlias);
+                      console.log('Available models:', models.map(m => ({ name: m.name || m.table_name, hasColumns: !!m.columns })));
+                      
+                      const targetModel = models.find((model: any) => {
+                        const schema = model.schema || model.schema_name || model.database_schema || 'default';
+                        const tableName = model.name || model.table_name;
+                        console.log('Checking model:', { tableName, schema, targetTableName });
+                        return tableName === targetTableName || `${schema}.${tableName}` === targetTableName;
+                      });
+                      
+                      console.log('Target model found:', targetModel);
+                      
+                      if (targetModel && targetModel.columns && Array.isArray(targetModel.columns)) {
+                        console.log('Found columns for table:', targetModel.columns.length, targetModel.columns);
+                        targetModel.columns.forEach((column: any) => {
+                          suggestions.push({
+                            label: column.name,
+                            kind: monaco.languages.CompletionItemKind.Field,
+                            insertText: column.name,
+                            documentation: `Column: ${column.name} (Type: ${column.type})${targetAlias ? ` from alias ${targetAlias}` : ''}`,
+                            detail: `${column.type}${column.nullable ? ' (nullable)' : ' (not null)'}`,
+                            range: range
+                          });
+                        });
+                      } else {
+                        console.log('No columns found for table:', targetTableName, 'Target model:', targetModel);
+                      }
+                    }
+
+                    if (!models || models.length === 0) {
+                      console.log('No models available for completion');
+                    }
+
+                    return { suggestions };
+                  }
+                });
+
+                // Store completion provider for cleanup
+                editorRef.current.completionProvider = completionProvider;
+
+                // Add keyboard shortcuts
+                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+                  handleExecute();
+                });
+
+                // Add Ctrl+Space to trigger suggestions
+                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space, () => {
+                  editor.trigger('', 'editor.action.triggerSuggest', {});
+                });
+
+                // Auto-scroll to bottom when content changes (for SQL generation)
+                editor.onDidChangeModelContent(() => {
+                  if (queryText && queryText.length > prevQueryLength.current && queryText.length - prevQueryLength.current > 10) {
+                    setTimeout(() => {
+                      editor.revealLine(editor.getModel()?.getLineCount() || 1);
+                    }, 100);
+                  }
+                });
               }}
+              options={{
+                selectOnLineNumbers: true,
+                roundedSelection: false,
+                readOnly: false,
+                cursorStyle: 'line',
+                automaticLayout: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 14,
+                lineNumbers: 'on',
+                wordWrap: 'on',
+                folding: true,
+                lineDecorationsWidth: 10,
+                lineNumbersMinChars: 3,
+                renderLineHighlight: 'all',
+                scrollbar: {
+                  vertical: 'auto',
+                  horizontal: 'auto',
+                  verticalScrollbarSize: 8,
+                  horizontalScrollbarSize: 8,
+                },
+                suggest: {
+                  showKeywords: true,
+                  showSnippets: true,
+                  showFunctions: true,
+                  showConstructors: true,
+                  showFields: true,
+                  showVariables: true,
+                  showClasses: true,
+                  showStructs: true,
+                  showInterfaces: true,
+                  showModules: true,
+                  showProperties: true,
+                  showEvents: true,
+                  showOperators: true,
+                  showUnits: true,
+                  showValues: true,
+                  showConstants: true,
+                  showEnums: true,
+                  showEnumMembers: true,
+                  showColors: true,
+                  showFiles: true,
+                  showReferences: true,
+                  showFolders: true,
+                  showTypeParameters: true,
+                  showIssues: true,
+                  showUsers: true,
+                  showWords: true,
+                },
+                quickSuggestions: {
+                  other: true,
+                  comments: false,
+                  strings: false,
+                },
+                parameterHints: {
+                  enabled: true,
+                },
+                hover: {
+                  enabled: true,
+                },
+                contextmenu: true,
+                mouseWheelZoom: true,
+                multiCursorModifier: 'ctrlCmd',
+                formatOnPaste: true,
+                formatOnType: true,
+              }}
+              theme="vs"
             />
           </div>
         )}

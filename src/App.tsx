@@ -328,6 +328,7 @@ function App() {
                 models={memoizedModels}
                 onTabSwitch={handleTabSwitch}
                 onActiveTabChange={handleQueryEditorActiveTabChange}
+                activeTabId={queryEditorActiveTabId}
                 className="h-100"
               />
             </div>
