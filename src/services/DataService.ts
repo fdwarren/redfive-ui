@@ -49,8 +49,6 @@ class DataService {
         headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
 
-      console.log('Sending request to:', `${this.baseUrl}/generate-sql`);
-      console.log('Request body:', requestBody);
 
       const response = await fetch(`${this.baseUrl}/generate-sql`, {
         method: 'POST',
@@ -61,17 +59,13 @@ class DataService {
         cache: 'no-cache', // Prevent caching issues
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Response error:', errorText);
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('Response data:', data);
       
       return {
         success: true,
@@ -80,7 +74,6 @@ class DataService {
       };
 
     } catch (error) {
-      console.error('DataService error:', error);
       
       // Provide more specific error messages
       let errorMessage = 'Unknown error occurred';
@@ -123,8 +116,6 @@ class DataService {
         headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
 
-      console.log('Executing SQL:', sql);
-      console.log('Sending request to:', `${this.baseUrl}/execute-sql`);
 
       const response = await fetch(`${this.baseUrl}/execute-sql`, {
         method: 'POST',
@@ -135,16 +126,13 @@ class DataService {
         cache: 'no-cache',
       });
 
-      console.log('Response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Response error:', errorText);
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('SQL execution response:', data);
       
       return {
         success: true,
@@ -153,7 +141,6 @@ class DataService {
       };
 
     } catch (error) {
-      console.error('SQL execution error:', error);
       
       let errorMessage = 'Unknown error occurred';
       if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
@@ -196,7 +183,6 @@ class DataService {
       };
 
     } catch (error) {
-      console.error('Health check error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Health check failed',
@@ -241,7 +227,6 @@ class DataService {
         headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
 
-      console.log('Getting models from:', `${this.baseUrl}/get-models`);
 
       const response = await fetch(`${this.baseUrl}/get-models`, {
         method: 'GET',
@@ -251,16 +236,13 @@ class DataService {
         cache: 'no-cache',
       });
 
-      console.log('Get models response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Get models error:', errorText);
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('Get models response data:', data);
       
       return {
         success: true,
@@ -269,7 +251,6 @@ class DataService {
       };
 
     } catch (error) {
-      console.error('Get models error:', error);
       
       let errorMessage = 'Unknown error occurred';
       if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
@@ -306,7 +287,6 @@ class DataService {
         'Accept': 'application/json',
       };
 
-      console.log('Refreshing token...');
 
       const response = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: 'POST',
@@ -317,11 +297,9 @@ class DataService {
         cache: 'no-cache',
       });
 
-      console.log('Token refresh response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Token refresh error:', errorText);
         
         // If refresh fails, clear stored tokens
         localStorage.removeItem('access_token');
@@ -336,7 +314,6 @@ class DataService {
       }
 
       const data = await response.json();
-      console.log('Token refresh response data:', data);
       
       // Update stored tokens
       if (data.access_token) {
@@ -344,7 +321,6 @@ class DataService {
         if (data.refresh_token) {
           localStorage.setItem('refresh_token', data.refresh_token);
         }
-        console.log('Tokens refreshed successfully');
       }
       
       return {
@@ -354,7 +330,6 @@ class DataService {
       };
 
     } catch (error) {
-      console.error('Token refresh error:', error);
       
       // Clear stored tokens on error
       localStorage.removeItem('access_token');
@@ -380,7 +355,6 @@ class DataService {
       const currentTime = Date.now() / 1000;
       return payload.exp < currentTime;
     } catch (error) {
-      console.error('Error checking token expiration:', error);
       return true; // Assume expired if we can't parse
     }
   }
@@ -393,19 +367,16 @@ class DataService {
     const accessToken = localStorage.getItem('access_token');
     
     if (!accessToken) {
-      console.log('No access token found');
       return null;
     }
 
     // Check if token is expired
     if (this.isTokenExpired(accessToken)) {
-      console.log('Access token is expired, attempting refresh...');
       const refreshResult = await this.refreshToken();
       
       if (refreshResult.success && refreshResult.data?.access_token) {
         return refreshResult.data.access_token;
       } else {
-        console.log('Token refresh failed, user needs to re-authenticate');
         return null;
       }
     }

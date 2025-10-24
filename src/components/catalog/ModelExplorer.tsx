@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo, useMemo } from 'react';
-import DataService from '../services/DataService';
+import DataService from '../../services/DataService';
 
 interface ModelExplorerProps {
   className?: string;
@@ -51,7 +51,6 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
     } else if (models && models.models && Array.isArray(models.models)) {
       modelsArray = models.models;
     } else {
-      console.warn('Models data is not in expected format:', models);
       return schemaMap;
     }
     
@@ -108,17 +107,11 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
   }, [models]);
 
   const loadModels = async () => {
-    console.log('Starting to load models...');
     setIsLoadingModels(true);
     try {
       const response = await dataService.getModels();
-      console.log('Models response:', response);
       
       if (response.success && response.data) {
-        console.log('Models response data:', response.data);
-        console.log('Models data type:', typeof response.data);
-        console.log('Is array:', Array.isArray(response.data));
-        console.log('Models length:', response.data?.length);
         
         // Extract models array from the response structure
         let modelsArray = [];
@@ -127,17 +120,14 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
         } else if (response.data.models && Array.isArray(response.data.models)) {
           modelsArray = response.data.models;
         } else {
-          console.warn('Could not find models array in response:', response.data);
           setModels([]);
           return;
         }
         
-        console.log('Extracted models array:', modelsArray);
         setModels(modelsArray);
         
         // Extract spatial columns from models
         const spatialColumns = extractSpatialColumns(modelsArray);
-        console.log('Extracted spatial columns:', spatialColumns);
         
         // Notify parent component about loaded models
         if (onModelsLoaded) {
@@ -165,11 +155,9 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
         
         setExpandedFolders(newExpandedFolders);
       } else {
-        console.error('Failed to load models:', response.error);
         setModels([]);
       }
     } catch (error) {
-      console.error('Failed to load models:', error);
       setModels([]);
     } finally {
       setIsLoadingModels(false);
@@ -192,7 +180,6 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
   const showContextMenu = (e: React.MouseEvent, type: 'table' | 'column', item: any) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Context menu triggered for:', type, item);
     setContextMenu({
       show: true,
       x: e.clientX,
@@ -269,7 +256,6 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                     // If clicking on the folder name (not the chevron), also select "all schemas"
                     if (e.target instanceof HTMLElement && (e.target.tagName === 'SPAN' || e.target.closest('span'))) {
                       if (onSchemaSelect) {
-                        console.log('ModelExplorer: All Schemas selected');
                         onSchemaSelect('default'); // Use 'default' to show all schemas
                       }
                     }
@@ -296,7 +282,6 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                               // If clicking on the schema name (not the chevron), also select the schema
                               if (e.target instanceof HTMLElement && (e.target.tagName === 'SPAN' || e.target.closest('span'))) {
                                 if (onSchemaSelect) {
-                                  console.log('ModelExplorer: Schema selected:', schema);
                                   onSchemaSelect(schema);
                                 }
                               }

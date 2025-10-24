@@ -4,7 +4,7 @@ import ChartConfig from './ChartConfig';
 
 // Chart state is now managed by parent component to persist across tab switches
 
-interface AnalysisTabProps {
+interface ChartTabProps {
   metadata?: any;
   queryResults?: any[];
   columns?: string[];
@@ -13,7 +13,7 @@ interface AnalysisTabProps {
   tabId?: string;
 }
 
-const AnalysisTab: React.FC<AnalysisTabProps> = ({ 
+const ChartTab: React.FC<ChartTabProps> = ({ 
   metadata, 
   queryResults = [], 
   columns = [], 
@@ -292,4 +292,4 @@ const AnalysisTab: React.FC<AnalysisTabProps> = ({
   );
 };
 
-export default memo(AnalysisTab);
+export default memo(ChartTab);

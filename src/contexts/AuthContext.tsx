@@ -1,12 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { getApiBaseUrl } from '../utils/apiConfig';
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  picture?: string;
-}
+import type { User } from '../types';
 
 export interface AuthContextType {
   user: User | null;
@@ -39,7 +33,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Check if Google Identity Services is already loaded
     if (window.google && window.google.accounts) {
-      console.log('Google Identity Services already loaded');
       setIsLoading(false);
       return;
     }
@@ -47,10 +40,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check if script is already being loaded
     const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
     if (existingScript) {
-      console.log('Google Identity Services script already exists, waiting for load...');
       const checkGoogleLoaded = () => {
         if (window.google && window.google.accounts) {
-          console.log('Google Identity Services loaded successfully');
           setIsLoading(false);
         } else {
           setTimeout(checkGoogleLoaded, 100);
@@ -63,10 +54,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check if Google Identity Services is loaded
     const checkGoogleLoaded = () => {
       if (window.google && window.google.accounts) {
-        console.log('Google Identity Services loaded successfully');
         setIsLoading(false);
       } else {
-        console.log('Waiting for Google Identity Services to load...');
         setTimeout(checkGoogleLoaded, 100);
       }
     };
@@ -78,7 +67,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     script.defer = true;
     script.onload = checkGoogleLoaded;
     script.onerror = () => {
-      console.error('Failed to load Google Identity Services script');
       setIsLoading(false);
     };
     document.head.appendChild(script);
@@ -96,13 +84,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const currentTime = Date.now() / 1000;
             return payload.exp < currentTime;
           } catch (error) {
-            console.error('Error checking token expiration:', error);
             return true; // Assume expired if we can't parse
           }
         };
 
         if (isExpired(savedAccessToken)) {
-          console.log('Access token is expired, attempting refresh...');
           // Token is expired, try to refresh it
           setTimeout(async () => {
             const refreshTokenValue = localStorage.getItem('refresh_token');
@@ -125,7 +111,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     if (data.refresh_token) {
                       localStorage.setItem('refresh_token', data.refresh_token);
                     }
-                    console.log('Token refreshed successfully on app startup');
                     setUser(JSON.parse(savedUser));
                   }
                 } else {
@@ -135,7 +120,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   localStorage.removeItem('refresh_token');
                 }
               } catch (error) {
-                console.error('Token refresh failed on startup:', error);
                 localStorage.removeItem('user');
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('refresh_token');
@@ -151,7 +135,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(JSON.parse(savedUser));
         }
       } catch (error) {
-        console.error('Error parsing saved user:', error);
         localStorage.removeItem('user');
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
@@ -168,30 +151,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = () => {
-    console.log('Login button clicked');
     
     // Prevent multiple login attempts
     if (isLoggingIn) {
-      console.log('Login already in progress, ignoring duplicate request');
       return;
     }
     
     if (!window.google || !window.google.accounts) {
-      console.error('Google Identity Services not loaded');
       return;
     }
 
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    console.log('Client ID:', clientId);
     
     if (!clientId || clientId === 'your_google_client_id_here') {
-      console.error('Google Client ID not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env file');
       alert('Google OAuth is not configured. Please set up your Google OAuth Client ID in the .env file.');
       return;
     }
 
     setIsLoggingIn(true);
-    console.log('Initializing Google OAuth client...');
     
     // Use redirect-based flow to avoid popup blockers
     const oauthClient = window.google.accounts.oauth2.initTokenClient({
@@ -200,16 +177,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       ux_mode: 'redirect',
       redirect_uri: window.location.origin,
       callback: (response: any) => {
-        console.log('OAuth callback received:', response);
         
         if (response.access_token) {
-          console.log('Access token received, authenticating with server...');
           
           // First get user info from Google
           fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${response.access_token}`)
             .then(res => res.json())
             .then(userInfo => {
-              console.log('User info received:', userInfo);
               
               // Now authenticate with our backend server
               const apiBase = getApiBaseUrl();
@@ -224,7 +198,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   user_info: userInfo
                 })
               }).then(res => res.json()).then(authResponse => {
-                console.log('Server authentication response:', authResponse);
                 
                 if (authResponse.success || authResponse.user) {
                   const userData: User = {
@@ -236,17 +209,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   setUser(userData);
                   localStorage.setItem('user', JSON.stringify(userData));
                 } else {
-                  console.error('Server authentication failed:', authResponse);
                 }
                 setIsLoggingIn(false);
               });
             })
-            .catch(error => {
-              console.error('Error during authentication:', error);
+            .catch(() => {
               setIsLoggingIn(false);
             });
         } else {
-          console.error('No access token in response:', response);
           setIsLoggingIn(false);
         }
       }
@@ -259,7 +229,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const refreshTokenValue = localStorage.getItem('refresh_token');
       if (!refreshTokenValue) {
-        console.log('No refresh token available');
         return false;
       }
 
@@ -274,7 +243,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (!response.ok) {
-        console.error('Token refresh failed:', response.status);
         // Clear invalid tokens
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
@@ -290,13 +258,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (data.refresh_token) {
           localStorage.setItem('refresh_token', data.refresh_token);
         }
-        console.log('Token refreshed successfully');
         return true;
       }
 
       return false;
     } catch (error) {
-      console.error('Token refresh error:', error);
       // Clear tokens on error
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
@@ -312,8 +278,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     fetch(`${apiBase}/auth/logout`, {
       method: 'POST',
       credentials: 'include',
-    }).catch(error => {
-      console.error('Error during logout:', error);
+    }).catch(() => {
     });
     
     setUser(null);

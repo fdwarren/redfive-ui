@@ -1,6 +1,6 @@
 import React, { memo, useState, useEffect } from 'react';
 import ResultsTable from './ResultsTable';
-import AnalysisTab from './AnalysisTab';
+import ChartTab from './ChartTab';
 import MapTab from './MapTab';
 
 interface ResultsPanelProps {
@@ -100,7 +100,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
         </div>
 
         <div style={{ display: activeTab === 'analysis' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
-          <AnalysisTab 
+          <ChartTab 
             metadata={metadata} 
             queryResults={results} 
             columns={columns}

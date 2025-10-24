@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { getApiBaseUrl } from '../utils/apiConfig';
+import { useAuth } from '../../contexts/AuthContext';
+import { getApiBaseUrl } from '../../utils/apiConfig';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -36,7 +36,6 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: (response: any) => {
-            console.log('Google Sign-In response:', response);
             // Handle the credential response
             if (response.credential) {
               // Set authenticating state to show progress indicator
@@ -44,7 +43,6 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
               
               // Decode the JWT token to get user info
               const payload = JSON.parse(atob(response.credential.split('.')[1]));
-              console.log('User info from JWT:', payload);
               
               // Send to your backend for authentication
               const apiBase = getApiBaseUrl();
@@ -58,16 +56,13 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
                   token: response.credential
                 })
               }).then(res => {
-                console.log('Response status:', res.status);
                 if (!res.ok) {
                   return res.json().then(errorData => {
-                    console.error('Server error details:', errorData);
                     throw new Error(`Server error: ${JSON.stringify(errorData)}`);
                   });
                 }
                 return res.json();
               }).then(authResponse => {
-                console.log('Server authentication response:', authResponse);
                 if (authResponse.access_token) {
                   // Store the tokens
                   localStorage.setItem('access_token', authResponse.access_token);
@@ -82,17 +77,13 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
                   };
                   localStorage.setItem('user', JSON.stringify(userData));
                   
-                  console.log('Authentication successful! Stored tokens and user data.');
-                  console.log('User data:', userData);
-                  console.log('Access token:', authResponse.access_token);
                   
                   // Reload to trigger re-authentication
                   setTimeout(() => {
                     window.location.reload();
                   }, 1000);
                 }
-              }).catch(error => {
-                console.error('Authentication error:', error);
+              }).catch(() => {
                 setIsAuthenticating(false);
               });
             }

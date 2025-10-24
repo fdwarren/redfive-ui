@@ -81,7 +81,6 @@ const MapTab: React.FC<MapTabProps> = ({ results, columns, onRowSelect, selected
         }
 
       } catch (err) {
-        console.error('Error initializing map:', err);
         setError('Failed to initialize map');
       }
     };
@@ -110,12 +109,6 @@ const MapTab: React.FC<MapTabProps> = ({ results, columns, onRowSelect, selected
       if (graphicsLayer) {
         const newDatasetHash = createDatasetHash(results, columns || []);
         const isNewDataset = newDatasetHash !== currentDatasetHashRef.current;
-        
-        console.log('MapTab: Processing spatial data', { 
-          isNewDataset, 
-          currentHash: currentDatasetHashRef.current, 
-          newHash: newDatasetHash 
-        });
         
         graphicsLayer.removeAll();
         processSpatialData(results, columns || [], graphicsLayer, isNewDataset);
@@ -218,7 +211,6 @@ const MapTab: React.FC<MapTabProps> = ({ results, columns, onRowSelect, selected
     );
 
     if (spatialColumns.length === 0) {
-      console.log('No spatial data found in results');
       return;
     }
 
@@ -339,15 +331,12 @@ const MapTab: React.FC<MapTabProps> = ({ results, columns, onRowSelect, selected
             graphicsLayer.add(graphic);
           }
         } catch (err) {
-          console.warn(`Error processing spatial data for row ${index}:`, err);
         }
       });
     });
 
     // Fit view to graphics only if this is a new dataset
-    console.log('MapTab: processSpatialData', { shouldZoom, graphicsCount: graphicsLayer.graphics.length });
     if (shouldZoom && graphicsLayer.graphics.length > 0) {
-      console.log('MapTab: Zooming to graphics');
       mapViewRef.current?.goTo(graphicsLayer.graphics);
     }
   };

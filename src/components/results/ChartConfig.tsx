@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import simpleChartSchema from '../assets/simple-chart.schema.json';
+import simpleChartSchema from '../../assets/simple-chart.schema.json';
 
 interface ChartConfigProps {
   queryResults: any[];
@@ -221,7 +221,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
             onChange={(e) => handleChartTypeChange(e.target.value)}
             style={{ borderColor: '#aa0000', fontSize: '0.8rem' }}
           >
-            {chartTypes.map(type => (
+            {chartTypes.map((type: string) => (
               <option key={type} value={type}>
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </option>

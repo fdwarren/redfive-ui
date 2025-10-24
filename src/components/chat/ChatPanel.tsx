@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import DataService from '../services/DataService';
-
-interface ChatMessage {
-  id: number;
-  text: string;
-  sender: 'user' | 'ai';
-}
+import DataService from '../../services/DataService';
+import type { ChatMessage } from '../../types';
 
 interface ChatPanelProps {
   className?: string;
@@ -43,17 +38,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
         const response = await dataService.sendPrompt(newMessage);
         
         if (response.success && response.data) {
-          console.log('Response data:', response.data);
-          console.log('Sql:', response.data.sql);
-          console.log('onSqlGenerated prop:', onSqlGenerated);
           
           if (response.data.sql) {
-            console.log('Calling onSqlGenerated with:', response.data.sql);
             // Write SQL to query editor
             if (onSqlGenerated) {
               onSqlGenerated(response.data.sql);
             } else {
-              console.log('onSqlGenerated is not defined!');
             }
             
             const aiMessage = { 

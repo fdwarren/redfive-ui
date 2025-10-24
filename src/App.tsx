@@ -1,27 +1,17 @@
 import { useState, useMemo, useCallback } from 'react'
 import './App.css'
 import { AuthProvider } from './contexts/AuthContext'
-import AuthGuard from './components/AuthGuard'
-import Navbar from './components/Navbar'
-import ModelExplorer from './components/ModelExplorer'
-import QueryEditor from './components/QueryEditor'
-import ResultsPanel from './components/ResultsPanel'
-import ResultsDetailsPanel from './components/ResultsDetailsPanel'
-import ChatPanel from './components/ChatPanel'
-import ResizeHandle from './components/ResizeHandle'
-import HorizontalResizeHandle from './components/HorizontalResizeHandle'
+import AuthGuard from './components/auth/AuthGuard'
+import Navbar from './components/layout/Navbar'
+import ModelExplorer from './components/catalog/ModelExplorer'
+import QueryEditor from './components/query/QueryEditor'
+import ResultsPanel from './components/results/ResultsPanel'
+import ResultsDetailsPanel from './components/results/ResultsDetailsPanel'
+import ChatPanel from './components/chat/ChatPanel'
+import ResizeHandle from './components/layout/ResizeHandle'
+import HorizontalResizeHandle from './components/layout/HorizontalResizeHandle'
 import DataService from './services/DataService'
-
-// Interface for storing results data per tab
-interface TabResults {
-  results: any[];
-  columns: string[];
-  rowCount: number;
-  executionError: string | null;
-  executionMetadata: any;
-  selectedRowIndex: number | null;
-  chartConfig: any;
-}
+import type { TabResults } from './types'
 
 function App() {
   const [queryText, setQueryText] = useState('');
@@ -58,7 +48,6 @@ function App() {
 
   // Catalog selection state
   const [selectedTable, setSelectedTable] = useState<any>(null);
-  const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [selectedSchema, setSelectedSchema] = useState<string | null>(null);
   const [models, setModels] = useState<any[]>([]);
   const [spatialColumns, setSpatialColumns] = useState<string[]>([]);
@@ -117,7 +106,6 @@ function App() {
             selectedRowIndex: null
           }
         }));
-        console.error('Query execution failed:', response.error);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -132,7 +120,6 @@ function App() {
           selectedRowIndex: null
         }
       }));
-      console.error('Query execution error:', error);
     } finally {
       setIsExecuting(false);
     }
@@ -312,7 +299,6 @@ function App() {
           <div style={{ width: `${leftPanelWidth}px`, flexShrink: 0, height: '100%' }}>
             <ModelExplorer 
               onTableSelect={handleTableSelect}
-              onColumnSelect={setSelectedColumn}
               onSchemaSelect={handleSchemaSelect}
               onModelsLoaded={setModels}
               onGenerateSelect={handleGenerateSelect}
@@ -338,7 +324,6 @@ function App() {
                 onSave={handleSave}
                 onFormat={handleFormat}
                 selectedTable={selectedTable}
-                selectedColumn={selectedColumn || undefined}
                 selectedSchema={selectedSchema || undefined}
                 models={memoizedModels}
                 onTabSwitch={handleTabSwitch}
@@ -354,9 +339,9 @@ function App() {
 
             {/* Bottom Panel - Results - only show when not in models tab */}
             {queryEditorActiveTabId !== 'docs' && (
-              <div style={{ height: `${100 - topPanelHeight}%`, flexShrink: 0 }} className="d-flex">
+              <div style={{ height: `calc(100vh - ${topPanelHeight}vh)`, flexShrink: 0 }} className="d-flex">
                 {/* Results Panel */}
-                <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                <div className="flex-grow-1" style={{ minWidth: 0, height: '100%' }}>
                   <ResultsPanel 
                     results={currentTabResults.results} 
                     columns={currentTabResults.columns}

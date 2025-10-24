@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
-import CatalogInfo from './CatalogInfo';
 import SchemaDocumentation from './SchemaDocumentation';
-
-interface Tab {
-  id: string;
-  name: string;
-  content: string;
-  isDirty: boolean;
-}
+import type { Tab } from '../../types';
 
 interface QueryEditorProps {
   queryText: string;
@@ -16,7 +9,6 @@ interface QueryEditorProps {
   onSave: () => void;
   onFormat: () => void;
   selectedTable?: any;
-  selectedColumn?: string;
   selectedSchema?: string;
   models?: any[];
   onTabSwitch?: (tabId: string) => void;
@@ -31,7 +23,6 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   onSave,
   onFormat,
   selectedTable,
-  selectedColumn,
   selectedSchema,
   models = [],
   onTabSwitch,
