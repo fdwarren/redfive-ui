@@ -5,6 +5,7 @@ interface ChartConfigProps {
   queryResults: any[];
   columns: string[];
   onConfigChange: (config: any) => void;
+  initialConfig?: any;
   className?: string;
 }
 
@@ -26,17 +27,32 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
   queryResults, 
   columns, 
   onConfigChange, 
+  initialConfig,
   className = '' 
 }) => {
-  const [config, setConfig] = useState<ChartConfigData>({
-    chart_type: 'bar',
-    x_key: '',
-    y_key: '',
-    series_key: '',
-    series: []
+  const [config, setConfig] = useState<ChartConfigData>(() => {
+    if (initialConfig) {
+      return {
+        chart_type: initialConfig.chart_type || 'bar',
+        x_key: initialConfig.x_key || '',
+        y_key: initialConfig.y_key || '',
+        series_key: initialConfig.series_key || '',
+        series: initialConfig.series || []
+      };
+    }
+    return {
+      chart_type: 'bar',
+      x_key: '',
+      y_key: '',
+      series_key: '',
+      series: []
+    };
   });
 
-  const [selectedSeriesValues, setSelectedSeriesValues] = useState<string[]>([]);
+  const [selectedSeriesValues, setSelectedSeriesValues] = useState<string[]>(() => {
+    return initialConfig?.selectedSeriesValues || [];
+  });
+
 
   // Get available chart types from schema
   const chartTypes = useMemo(() => {
@@ -99,10 +115,6 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
 
   // Notify parent of config changes
   useEffect(() => {
-    // Log the chart configuration in formatted JSON
-    console.log('⚙️ Chart Configuration (Formatted JSON):');
-    console.log(JSON.stringify(config, null, 2));
-    
     onConfigChange(config);
   }, [config, onConfigChange]);
 

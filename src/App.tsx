@@ -12,13 +12,25 @@ import ResizeHandle from './components/ResizeHandle'
 import HorizontalResizeHandle from './components/HorizontalResizeHandle'
 import DataService from './services/DataService'
 
+// Interface for storing results data per tab
+interface TabResults {
+  results: any[];
+  columns: string[];
+  rowCount: number;
+  executionError: string | null;
+  executionMetadata: any;
+  selectedRowIndex: number | null;
+  chartConfig: any;
+}
+
 function App() {
   const [queryText, setQueryText] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [columns, setColumns] = useState<string[]>([]);
-  const [rowCount, setRowCount] = useState(0);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [executionError, setExecutionError] = useState<string | null>(null);
+  
+  // Per-tab results management
+  const [tabResults, setTabResults] = useState<{ [tabId: string]: TabResults }>({});
+  const [activeTabId, setActiveTabId] = useState('1');
+  const [queryEditorActiveTabId, setQueryEditorActiveTabId] = useState('1');
 
   // Initialize DataService
   const dataService = useMemo(() => new DataService(), []);
@@ -42,12 +54,6 @@ function App() {
   const [resultsDetailsWidth, setResultsDetailsWidth] = useState(600); // pixels
   const minResultsDetailsWidth = 200;
   const maxResultsDetailsWidth = 800;
-  
-  // Selected row index state (more reliable for highlighting)
-  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
-
-  // Metadata from SQL execution for analysis tab
-  const [executionMetadata, setExecutionMetadata] = useState<any>(null);
 
 
   // Catalog selection state
@@ -57,36 +63,80 @@ function App() {
   const [models, setModels] = useState<any[]>([]);
   const [spatialColumns, setSpatialColumns] = useState<string[]>([]);
 
-  const handleExecute = useCallback(async (selectedQuery?: string) => {
+  const handleExecute = useCallback(async (selectedQuery?: string, tabId?: string) => {
     const queryToExecute = selectedQuery || queryText;
+    const targetTabId = tabId || activeTabId;
     setIsExecuting(true);
-    setExecutionError(null);
+    
+    // Initialize tab results if they don't exist
+    setTabResults(prev => {
+      if (!prev[targetTabId]) {
+        return {
+          ...prev,
+          [targetTabId]: {
+            results: [],
+            columns: [],
+            rowCount: 0,
+            executionError: null,
+            executionMetadata: null,
+            selectedRowIndex: null,
+            chartConfig: null
+          }
+        };
+      }
+      return prev;
+    });
     
     try {
       const response = await dataService.executeSql(queryToExecute);
       
       if (response.success && response.data) {
-        // Update results with the response data
-        setResults(response.data.data || []);
-        setColumns(response.data.columns || []);
-        setRowCount(response.data.row_count || 0);
-        // Don't clear selectedRowIndex - let ResultsTable handle default selection
-        
-        // Store metadata for analysis tab
-        if (response.data.metadata) {
-          setExecutionMetadata(response.data.metadata);
-        }
+        // Update results for the specific tab
+        setTabResults(prev => ({
+          ...prev,
+          [targetTabId]: {
+            results: response.data.data || [],
+            columns: response.data.columns || [],
+            rowCount: response.data.row_count || 0,
+            executionError: null,
+            executionMetadata: response.data.metadata || null,
+            selectedRowIndex: null, // Reset selection for new results
+            chartConfig: prev[targetTabId]?.chartConfig || null // Preserve existing chart config
+          }
+        }));
       } else {
-        setExecutionError(response.error || 'Failed to execute query');
+        // Update error for the specific tab
+        setTabResults(prev => ({
+          ...prev,
+          [targetTabId]: {
+            ...prev[targetTabId],
+            executionError: response.error || 'Failed to execute query',
+            results: [],
+            columns: [],
+            rowCount: 0,
+            selectedRowIndex: null
+          }
+        }));
         console.error('Query execution failed:', response.error);
       }
     } catch (error) {
-      setExecutionError(error instanceof Error ? error.message : 'Unknown error occurred');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setTabResults(prev => ({
+        ...prev,
+        [targetTabId]: {
+          ...prev[targetTabId],
+          executionError: errorMessage,
+          results: [],
+          columns: [],
+          rowCount: 0,
+          selectedRowIndex: null
+        }
+      }));
       console.error('Query execution error:', error);
     } finally {
       setIsExecuting(false);
     }
-  }, [queryText, dataService]);
+  }, [queryText, dataService, activeTabId]);
 
   const handleSave = useCallback(() => {
     // TODO: Implement save logic
@@ -153,6 +203,11 @@ function App() {
     setSelectedTable(null); // Clear table selection
   }, []);
 
+  const handleTableDocumentationSelect = useCallback((table: any) => {
+    setSelectedTable(table);
+    setSelectedSchema(table.schema || table.schema_name || table.database_schema || 'default');
+  }, []);
+
   const handleGenerateSelect = useCallback((table: any) => {
     // Generate a SELECT statement for the table
     const schemaName = table.schema || 'public';
@@ -171,10 +226,76 @@ function App() {
     setSpatialColumns(spatialColumns);
   }, []);
 
+  // Initialize tab results when switching to a new tab
+  const initializeTabResults = useCallback((tabId: string) => {
+    setTabResults(prev => {
+      if (!prev[tabId]) {
+        return {
+          ...prev,
+          [tabId]: {
+            results: [],
+            columns: [],
+            rowCount: 0,
+            executionError: null,
+            executionMetadata: null,
+            selectedRowIndex: null,
+            chartConfig: null
+          }
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  // Handle tab switching from QueryEditor
+  const handleTabSwitch = useCallback((tabId: string) => {
+    setActiveTabId(tabId);
+    initializeTabResults(tabId);
+  }, [initializeTabResults]);
+
+  // Handle active tab change from QueryEditor
+  const handleQueryEditorActiveTabChange = useCallback((tabId: string) => {
+    setQueryEditorActiveTabId(tabId);
+  }, []);
+
+  // Handle row selection for the active tab
+  const handleRowSelect = useCallback((rowIndex: number) => {
+    setTabResults(prev => ({
+      ...prev,
+      [activeTabId]: {
+        ...prev[activeTabId],
+        selectedRowIndex: rowIndex
+      }
+    }));
+  }, [activeTabId]);
+
+  // Handle chart config changes for the active tab
+  const handleChartConfigChange = useCallback((chartConfig: any) => {
+    setTabResults(prev => ({
+      ...prev,
+      [activeTabId]: {
+        ...prev[activeTabId],
+        chartConfig: chartConfig ? { ...chartConfig } : null // Create a copy to avoid reference sharing
+      }
+    }));
+  }, [activeTabId]);
+
+  // Get current tab results
+  const currentTabResults = tabResults[activeTabId] || {
+    results: [],
+    columns: [],
+    rowCount: 0,
+    executionError: null,
+    executionMetadata: null,
+    selectedRowIndex: null,
+    chartConfig: null
+  };
+
+
   // Compute the selected row object for the details panel
   const selectedRow = useMemo(() => {
-    return selectedRowIndex !== null ? results[selectedRowIndex] : null;
-  }, [selectedRowIndex, results]);
+    return currentTabResults.selectedRowIndex !== null ? currentTabResults.results[currentTabResults.selectedRowIndex] : null;
+  }, [currentTabResults.selectedRowIndex, currentTabResults.results]);
 
   // Memoize models to prevent unnecessary re-renders
   const memoizedModels = useMemo(() => models, [models]);
@@ -196,6 +317,7 @@ function App() {
               onModelsLoaded={setModels}
               onGenerateSelect={handleGenerateSelect}
               onSpatialColumnsLoaded={handleSpatialColumnsLoaded}
+              onTableDocumentationSelect={handleTableDocumentationSelect}
             />
           </div>
 
@@ -205,7 +327,10 @@ function App() {
           {/* Center Panels */}
           <div className="flex-grow-1 d-flex flex-column" style={{ minWidth: 0 }}>
             {/* Top Panel - Query Editor */}
-            <div style={{ height: `${topPanelHeight}%`, flexShrink: 0 }}>
+            <div style={{ 
+              height: queryEditorActiveTabId === 'docs' ? '100%' : `${topPanelHeight}%`, 
+              flexShrink: 0 
+            }}>
               <QueryEditor
                 queryText={queryText}
                 onQueryChange={setQueryText}
@@ -216,53 +341,62 @@ function App() {
                 selectedColumn={selectedColumn || undefined}
                 selectedSchema={selectedSchema || undefined}
                 models={memoizedModels}
+                onTabSwitch={handleTabSwitch}
+                onActiveTabChange={handleQueryEditorActiveTabChange}
                 className="h-100"
               />
             </div>
 
-            {/* Horizontal Resize Handle */}
-            <HorizontalResizeHandle onResize={handleVerticalResize} />
+            {/* Horizontal Resize Handle - only show when not in models tab */}
+            {queryEditorActiveTabId !== 'docs' && (
+              <HorizontalResizeHandle onResize={handleVerticalResize} />
+            )}
 
-                  {/* Bottom Panel - Results */}
-                  <div style={{ height: `${100 - topPanelHeight}%`, flexShrink: 0 }} className="d-flex">
-                    {/* Results Panel */}
-                    <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                      <ResultsPanel 
-                        results={results} 
-                        columns={columns}
-                        rowCount={rowCount}
-                        isExecuting={isExecuting}
-                        error={executionError}
-                        selectedRowIndex={selectedRowIndex}
-                        onRowSelect={setSelectedRowIndex}
-                        metadata={executionMetadata}
-                        spatialColumns={spatialColumns}
-                      />
-                    </div>
-                    
-                    {/* Results Details Resize Handle */}
-                    {!isResultsDetailsCollapsed && (
-                      <ResizeHandle onResize={handleResultsDetailsResize} />
-                    )}
-                    
-                    {/* Results Details Panel */}
-                    <div style={{ 
-                      width: isResultsDetailsCollapsed ? '40px' : `${resultsDetailsWidth}px`, 
-                      flexShrink: 0, 
-                      transition: 'width 0.3s ease' 
-                    }}>
-                      <ResultsDetailsPanel 
-                        results={results} 
-                        columns={columns}
-                        rowCount={rowCount}
-                        isExecuting={isExecuting}
-                        error={executionError}
-                        selectedRow={selectedRow}
-                        isCollapsed={isResultsDetailsCollapsed}
-                        onToggle={handleResultsDetailsToggle}
-                      />
-                    </div>
-                  </div>
+            {/* Bottom Panel - Results - only show when not in models tab */}
+            {queryEditorActiveTabId !== 'docs' && (
+              <div style={{ height: `${100 - topPanelHeight}%`, flexShrink: 0 }} className="d-flex">
+                {/* Results Panel */}
+                <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                  <ResultsPanel 
+                    results={currentTabResults.results} 
+                    columns={currentTabResults.columns}
+                    rowCount={currentTabResults.rowCount}
+                    isExecuting={isExecuting}
+                    error={currentTabResults.executionError}
+                    selectedRowIndex={currentTabResults.selectedRowIndex}
+                    onRowSelect={handleRowSelect}
+                    metadata={currentTabResults.executionMetadata}
+                    spatialColumns={spatialColumns}
+                    chartConfig={currentTabResults.chartConfig}
+                    onChartConfigChange={handleChartConfigChange}
+                    tabId={activeTabId}
+                  />
+                </div>
+                
+                {/* Results Details Resize Handle */}
+                {!isResultsDetailsCollapsed && (
+                  <ResizeHandle onResize={handleResultsDetailsResize} />
+                )}
+                
+                {/* Results Details Panel */}
+                <div style={{ 
+                  width: isResultsDetailsCollapsed ? '40px' : `${resultsDetailsWidth}px`, 
+                  flexShrink: 0, 
+                  transition: 'width 0.3s ease' 
+                }}>
+                  <ResultsDetailsPanel 
+                    results={currentTabResults.results} 
+                    columns={currentTabResults.columns}
+                    rowCount={currentTabResults.rowCount}
+                    isExecuting={isExecuting}
+                    error={currentTabResults.executionError}
+                    selectedRow={selectedRow}
+                    isCollapsed={isResultsDetailsCollapsed}
+                    onToggle={handleResultsDetailsToggle}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Resize Handle */}

@@ -10,6 +10,7 @@ interface AnalysisTabProps {
   columns?: string[];
   chartConfig: any;
   onChartConfigChange: (config: any) => void;
+  tabId?: string;
 }
 
 const AnalysisTab: React.FC<AnalysisTabProps> = ({ 
@@ -17,7 +18,8 @@ const AnalysisTab: React.FC<AnalysisTabProps> = ({
   queryResults = [], 
   columns = [], 
   chartConfig, 
-  onChartConfigChange 
+  onChartConfigChange,
+  tabId
 }) => {
   const [showConfig, setShowConfig] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
@@ -267,9 +269,11 @@ const AnalysisTab: React.FC<AnalysisTabProps> = ({
             </div>
             <div className="flex-grow-1" style={{ overflow: 'auto' }}>
               <ChartConfig 
+                key={tabId} // Force remount when switching tabs
                 queryResults={queryResults}
                 columns={columns}
                 onConfigChange={onChartConfigChange}
+                initialConfig={chartConfig}
               />
             </div>
           </div>

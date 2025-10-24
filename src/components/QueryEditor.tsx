@@ -12,13 +12,15 @@ interface Tab {
 interface QueryEditorProps {
   queryText: string;
   onQueryChange: (query: string) => void;
-  onExecute: (query?: string) => void;
+  onExecute: (query?: string, tabId?: string) => void;
   onSave: () => void;
   onFormat: () => void;
   selectedTable?: any;
   selectedColumn?: string;
   selectedSchema?: string;
   models?: any[];
+  onTabSwitch?: (tabId: string) => void;
+  onActiveTabChange?: (tabId: string) => void;
   className?: string;
 }
 
@@ -32,6 +34,8 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
   selectedColumn,
   selectedSchema,
   models = [],
+  onTabSwitch,
+  onActiveTabChange,
   className = ''
 }) => {
   const [tabs, setTabs] = useState<Tab[]>([
@@ -91,6 +95,15 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
     setTabCounter(prev => prev + 1);
+    
+    // Notify parent component about the new tab
+    if (onTabSwitch) {
+      onTabSwitch(newTab.id);
+    }
+    // Notify parent component about active tab change
+    if (onActiveTabChange) {
+      onActiveTabChange(newTab.id);
+    }
   };
 
   const closeTab = (tabId: string) => {
@@ -111,6 +124,15 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       setActiveTabId(newTab.id);
       setTabCounter(prev => prev + 1);
       onQueryChange('');
+      
+      // Notify parent component about the new tab
+      if (onTabSwitch) {
+        onTabSwitch(newTab.id);
+      }
+      // Notify parent component about active tab change
+      if (onActiveTabChange) {
+        onActiveTabChange(newTab.id);
+      }
       return;
     }
     
@@ -121,7 +143,17 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     if (activeTabId === tabId) {
       const currentIndex = tabs.findIndex(tab => tab.id === tabId);
       const newActiveIndex = currentIndex > 0 ? currentIndex - 1 : 0;
-      setActiveTabId(newTabs[newActiveIndex].id);
+      const newActiveTabId = newTabs[newActiveIndex].id;
+      setActiveTabId(newActiveTabId);
+      
+      // Notify parent component about the tab switch
+      if (onTabSwitch) {
+        onTabSwitch(newActiveTabId);
+      }
+      // Notify parent component about active tab change
+      if (onActiveTabChange) {
+        onActiveTabChange(newActiveTabId);
+      }
     }
   };
 
@@ -130,6 +162,14 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       onQueryChange(tab.content);
+    }
+    // Notify parent component about tab switch
+    if (onTabSwitch) {
+      onTabSwitch(tabId);
+    }
+    // Notify parent component about active tab change
+    if (onActiveTabChange) {
+      onActiveTabChange(tabId);
     }
   };
 
@@ -158,12 +198,12 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     const selectedText = getSelectedText();
     if (selectedText) {
       // Execute only the selected text
-      onExecute(selectedText);
+      onExecute(selectedText, activeTabId);
     } else {
       // Execute the entire query
-      onExecute();
+      onExecute(undefined, activeTabId);
     }
-  }, [onExecute]);
+  }, [onExecute, activeTabId]);
 
   const startEditingTab = (tabId: string) => {
     const tab = tabs.find(t => t.id === tabId);
@@ -258,6 +298,11 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       setTabs(prev => [...prev, newTab]);
       setActiveTabId(newTab.id);
       setTabCounter(prev => prev + 1);
+      
+      // Notify parent component about active tab change
+      if (onActiveTabChange) {
+        onActiveTabChange(newTab.id);
+      }
     }
     hideContextMenu();
   };
@@ -275,6 +320,11 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     setActiveTabId(newTab.id);
     setTabCounter(prev => prev + 1);
     onQueryChange('');
+    
+    // Notify parent component about active tab change
+    if (onActiveTabChange) {
+      onActiveTabChange(newTab.id);
+    }
     hideContextMenu();
   };
 
@@ -286,6 +336,11 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       const tabsToKeep = tabId === 'docs' ? [docsTab] : [docsTab, tab];
       setTabs(tabsToKeep.filter((tab): tab is Tab => tab !== undefined));
       setActiveTabId(tabId);
+      
+      // Notify parent component about active tab change
+      if (onActiveTabChange) {
+        onActiveTabChange(tabId);
+      }
     }
     hideContextMenu();
   };
@@ -301,6 +356,11 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     }
     setTabs(newTabs);
     setActiveTabId(tabId);
+    
+    // Notify parent component about active tab change
+    if (onActiveTabChange) {
+      onActiveTabChange(tabId);
+    }
     hideContextMenu();
   };
 
@@ -421,19 +481,12 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
       <div className="flex-grow-1 d-flex flex-column" style={{ minHeight: 0, position: 'relative', overflow: 'hidden' }}>
         {activeTabId === 'docs' ? (
           <div className="flex-grow-1" style={{ overflow: 'auto', maxHeight: '100%' }}>
-            {selectedSchema ? (
-              <SchemaDocumentation
-                schemaName={selectedSchema}
-                models={models}
-                className="h-100"
-              />
-            ) : (
-              <CatalogInfo
-                selectedTable={selectedTable}
-                selectedColumn={selectedColumn}
-                className="h-100"
-              />
-            )}
+            <SchemaDocumentation
+              schemaName={selectedSchema || 'default'}
+              models={models}
+              selectedTable={selectedTable}
+              className="h-100"
+            />
           </div>
         ) : (
           <div className="p-3 d-flex flex-column flex-grow-1">
@@ -452,24 +505,26 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
         )}
       </div>
       
-      {/* Buttons - fixed at bottom */}
-      <div className="p-3 border-top" style={{ flexShrink: 0 }}>
-        <div className="d-flex gap-2">
-          <button 
-            className="btn" 
-            style={{ backgroundColor: '#aa0000', borderColor: '#aa0000', color: 'white' }}
-            onClick={handleExecute}
-          >
-            <i className="bi bi-play me-1"></i>Execute
-          </button>
-          <button className="btn btn-outline-secondary" onClick={onSave}>
-            <i className="bi bi-save me-1"></i>Save
-          </button>
-          <button className="btn btn-outline-secondary" onClick={onFormat}>
-            <i className="bi bi-arrow-clockwise me-1"></i>Format
-          </button>
+      {/* Buttons - fixed at bottom - only show when not in models tab */}
+      {activeTabId !== 'docs' && (
+        <div className="p-3 border-top" style={{ flexShrink: 0 }}>
+          <div className="d-flex gap-2">
+            <button 
+              className="btn" 
+              style={{ backgroundColor: '#aa0000', borderColor: '#aa0000', color: 'white' }}
+              onClick={handleExecute}
+            >
+              <i className="bi bi-play me-1"></i>Execute
+            </button>
+            <button className="btn btn-outline-secondary" onClick={onSave}>
+              <i className="bi bi-save me-1"></i>Save
+            </button>
+            <button className="btn btn-outline-secondary" onClick={onFormat}>
+              <i className="bi bi-arrow-clockwise me-1"></i>Format
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Context Menu */}
       {contextMenu.show && (

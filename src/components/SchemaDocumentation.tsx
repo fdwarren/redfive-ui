@@ -14,12 +14,14 @@ interface Column {
 interface SchemaDocumentationProps {
   schemaName: string;
   models: any[];
+  selectedTable?: any;
   className?: string;
 }
 
 const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({ 
   schemaName, 
   models, 
+  selectedTable,
   className = '' 
 }) => {
   const [filterText, setFilterText] = useState('');
@@ -32,30 +34,55 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
       // Try different possible schema field names
       const modelSchema = model.schema || model.schema_name || model.database_schema || 'default';
       
-      if (modelSchema === schemaName && model.columns) {
-        model.columns.forEach((column: any) => {
-          columns.push({
-            name: column.name,
-            table: model.name,
-            type: column.type || 'N/A',
-            nullable: column.nullable || false,
-            description: column.description,
-            schema: modelSchema,
-            spatial_type: column.spatial_type,
-            semantic_role: column.semantic_role
+      // If a specific table is selected, only show columns from that table
+      if (selectedTable && model.name === selectedTable.name) {
+        if (model.columns) {
+          model.columns.forEach((column: any) => {
+            columns.push({
+              name: column.name,
+              table: model.name,
+              type: column.type || 'N/A',
+              nullable: column.nullable || false,
+              description: column.description,
+              schema: modelSchema,
+              spatial_type: column.spatial_type,
+              semantic_role: column.semantic_role
+            });
           });
-        });
+        }
+      }
+      // If no specific table is selected, show columns based on schema selection
+      else if (!selectedTable) {
+        // If no specific schema is selected (default), show all columns from all schemas
+        // Otherwise, only show columns from the selected schema
+        if ((schemaName === 'default' || modelSchema === schemaName) && model.columns) {
+          model.columns.forEach((column: any) => {
+            columns.push({
+              name: column.name,
+              table: model.name,
+              type: column.type || 'N/A',
+              nullable: column.nullable || false,
+              description: column.description,
+              schema: modelSchema,
+              spatial_type: column.spatial_type,
+              semantic_role: column.semantic_role
+            });
+          });
+        }
       }
     });
     
     return columns.sort((a, b) => {
-      // Sort by column name first, then by table name
+      // Sort by schema first, then by column name, then by table name
+      if (a.schema !== b.schema) {
+        return a.schema.localeCompare(b.schema);
+      }
       if (a.name !== b.name) {
         return a.name.localeCompare(b.name);
       }
       return a.table.localeCompare(b.table);
     });
-  }, [models, schemaName]);
+  }, [models, schemaName, selectedTable]);
 
   // Filter columns based on search text
   const filteredColumns = useMemo(() => {
@@ -77,7 +104,7 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
       <div className={`p-4 text-center text-muted ${className}`}>
         <i className="bi bi-database fs-1 mb-3" style={{ color: '#aa0000' }}></i>
         <h5 style={{ color: '#aa0000' }}>No Columns Found</h5>
-        <p>No columns available for schema "{schemaName}"</p>
+        <p>No columns available {selectedTable ? `for table "${selectedTable.name}"` : schemaName === 'default' ? 'in any schema' : `for schema "${schemaName}"`}</p>
       </div>
     );
   }
@@ -87,12 +114,15 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
       {/* Schema Header */}
       <div className="mb-4">
         <div className="d-flex align-items-center mb-2">
-          <i className="bi bi-database me-2" style={{ color: '#aa0000' }}></i>
-          <h4 className="mb-0" style={{ color: '#aa0000' }}>Schema: {schemaName}</h4>
+          <i className={`bi ${selectedTable ? 'bi-table' : 'bi-database'} me-2`} style={{ color: '#aa0000' }}></i>
+          <h4 className="mb-0" style={{ color: '#aa0000' }}>
+            {selectedTable ? `Table: ${selectedTable.name}` : schemaName === 'default' ? 'All Schemas' : `Schema: ${schemaName}`}
+          </h4>
         </div>
         <div className="text-muted small">
           <span className="badge me-2" style={{ backgroundColor: '#aa0000', color: 'white' }}>
-            {allColumns.length} columns across {new Set(allColumns.map(c => c.table)).size} tables
+            {selectedTable ? `${allColumns.length} columns` : `${allColumns.length} columns across ${new Set(allColumns.map(c => c.table)).size} tables`}
+            {!selectedTable && schemaName === 'default' && ` in ${new Set(allColumns.map(c => c.schema)).size} schemas`}
           </span>
         </div>
       </div>
@@ -135,6 +165,9 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
               <tr>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Column</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Table</th>
+                {schemaName === 'default' && (
+                  <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Schema</th>
+                )}
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Type</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Semantic Role</th>
                 <th style={{ color: '#aa0000', borderBottom: '2px solid #aa0000' }}>Nullable</th>
@@ -152,6 +185,13 @@ const SchemaDocumentation: React.FC<SchemaDocumentationProps> = ({
                       {column.table}
                     </span>
                   </td>
+                  {schemaName === 'default' && (
+                    <td style={{ verticalAlign: 'middle' }}>
+                      <span className="badge" style={{ backgroundColor: '#aa0000', color: 'white' }}>
+                        {column.schema}
+                      </span>
+                    </td>
+                  )}
                   <td style={{ verticalAlign: 'middle' }}>
                     <div className="d-flex align-items-center">
                       <span className="badge" style={{ backgroundColor: '#aa0000', color: 'white' }}>

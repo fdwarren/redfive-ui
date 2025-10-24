@@ -13,6 +13,9 @@ interface ResultsPanelProps {
   onRowSelect: (rowIndex: number) => void;
   metadata?: any;
   spatialColumns?: string[];
+  chartConfig?: any;
+  onChartConfigChange?: (config: any) => void;
+  tabId?: string;
   className?: string;
 }
 
@@ -26,10 +29,12 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
   onRowSelect,
   metadata,
   spatialColumns = [],
+  chartConfig,
+  onChartConfigChange,
+  tabId,
   className = '' 
 }) => {
   const [activeTab, setActiveTab] = useState('table');
-  const [chartConfig, setChartConfig] = useState<any>(null);
 
   // Check if any spatial columns are present in the query results
   const hasSpatialData = spatialColumns.some(spatialCol => 
@@ -100,7 +105,8 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
             queryResults={results} 
             columns={columns}
             chartConfig={chartConfig}
-            onChartConfigChange={setChartConfig}
+            onChartConfigChange={onChartConfigChange || (() => {})}
+            tabId={tabId}
           />
         </div>
 

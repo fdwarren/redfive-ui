@@ -9,12 +9,14 @@ interface ModelExplorerProps {
   onModelsLoaded?: (models: any[]) => void;
   onGenerateSelect?: (table: any) => void;
   onSpatialColumnsLoaded?: (spatialColumns: string[]) => void;
+  onTableDocumentationSelect?: (table: any) => void;
 }
 
-const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect, onSpatialColumnsLoaded }) => {
+const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect, onSpatialColumnsLoaded, onTableDocumentationSelect }) => {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'databases': true,
     'production': true,
+    'schemas': true,
     'saved-queries': false
   });
   const [models, setModels] = useState<any[]>([]);
@@ -152,6 +154,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
         const newExpandedFolders: Record<string, boolean> = {
           'databases': true,
           'production': true,
+          'schemas': true,
           'saved-queries': false
         };
         
@@ -255,94 +258,124 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
             </div>
           ) : models.length > 0 ? (
             <>
-              {/* Models organized by schema */}
-              {Object.entries(schemaMap)
-                  .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([schema, tables]) => (
-                  <div key={schema} className="explorer-item">
-                    <div 
-                      className="explorer-folder" 
-                      onClick={(e) => {
-                        // Always toggle folder first
-                        toggleFolder(`schema-${schema}`);
-                        
-                        // If clicking on the schema name (not the chevron), also select the schema
-                        if (e.target instanceof HTMLElement && (e.target.tagName === 'SPAN' || e.target.closest('span'))) {
-                          if (onSchemaSelect) {
-                            console.log('ModelExplorer: Schema selected:', schema);
-                            onSchemaSelect(schema);
-                          }
-                        }
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <i className={`bi ${expandedFolders[`schema-${schema}`] ? 'bi-chevron-down' : 'bi-chevron-right'} me-1`}></i>
-                      <i className="bi bi-folder me-2"></i>
-                      <span>{schema}</span>
-                    </div>
-                    {expandedFolders[`schema-${schema}`] && (
-                      <div className="explorer-children">
-                        {Object.entries(tables)
-                          .sort(([a], [b]) => a.localeCompare(b))
-                          .map(([tableName, columns]) => {
-                            // Find the full table model for this table
-                            const tableModel = Array.isArray(models) ? models.find(model => 
-                              model.name === tableName
-                            ) : null;
-                            
-                            return (
-                            <div key={tableName} className="explorer-item">
-                              <div 
-                                className="explorer-folder" 
-                                onClick={() => {
-                                  toggleFolder(`table-${schema}-${tableName}`);
-                                  if (onTableSelect && tableModel) {
-                                    onTableSelect(tableModel);
-                                  }
-                                }}
-                                onContextMenu={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  showContextMenu(e, 'table', tableModel || { name: tableName, schema: schema });
-                                }}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                <i className={`bi ${expandedFolders[`table-${schema}-${tableName}`] ? 'bi-chevron-down' : 'bi-chevron-right'} me-1`}></i>
-                                <i className="bi bi-table me-2"></i>
-                                <span>{tableName}</span>
-                              </div>
-                            {expandedFolders[`table-${schema}-${tableName}`] && (
-                              <div className="explorer-children">
-                                {columns.map((column: any) => (
-                                  <div 
-                                    key={column.name} 
-                                    className="explorer-file"
-                                    onClick={() => {
-                                      if (onColumnSelect) {
-                                        onColumnSelect(column.name);
-                                      }
-                                    }}
-                                    onContextMenu={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      showContextMenu(e, 'column', column);
-                                    }}
-                                    style={{ cursor: 'pointer' }}
-                                  >
-                                    <i className="bi bi-columns me-2"></i>
-                                    <span>{column.name}{column.spatial_type === 'point' ? <span style={{color: '#aa0000'}}>*</span> : column.spatial_type === 'polyline' ? <span style={{color: '#aa0000'}}>**</span> : column.spatial_type === 'polygon' ? <span style={{color: '#aa0000'}}>***</span> : ''}</span>
-                                    <span className="text-muted small ms-2">({column.type})</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+              {/* Schemas Folder - Contains all database schemas */}
+              <div className="explorer-item">
+                <div 
+                  className="explorer-folder" 
+                  onClick={(e) => {
+                    // Always toggle folder first
+                    toggleFolder('schemas');
+                    
+                    // If clicking on the folder name (not the chevron), also select "all schemas"
+                    if (e.target instanceof HTMLElement && (e.target.tagName === 'SPAN' || e.target.closest('span'))) {
+                      if (onSchemaSelect) {
+                        console.log('ModelExplorer: All Schemas selected');
+                        onSchemaSelect('default'); // Use 'default' to show all schemas
+                      }
+                    }
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <i className={`bi ${expandedFolders['schemas'] ? 'bi-chevron-down' : 'bi-chevron-right'} me-1`}></i>
+                  <i className="bi bi-folder me-2"></i>
+                  <span>Schemas</span>
+                </div>
+                {expandedFolders['schemas'] && (
+                  <div className="explorer-children">
+                    {/* Models organized by schema */}
+                    {Object.entries(schemaMap)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([schema, tables]) => (
+                        <div key={schema} className="explorer-item">
+                          <div 
+                            className="explorer-folder" 
+                            onClick={(e) => {
+                              // Always toggle folder first
+                              toggleFolder(`schema-${schema}`);
+                              
+                              // If clicking on the schema name (not the chevron), also select the schema
+                              if (e.target instanceof HTMLElement && (e.target.tagName === 'SPAN' || e.target.closest('span'))) {
+                                if (onSchemaSelect) {
+                                  console.log('ModelExplorer: Schema selected:', schema);
+                                  onSchemaSelect(schema);
+                                }
+                              }
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <i className={`bi ${expandedFolders[`schema-${schema}`] ? 'bi-chevron-down' : 'bi-chevron-right'} me-1`}></i>
+                            <i className="bi bi-folder me-2"></i>
+                            <span>{schema}</span>
                           </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                          {expandedFolders[`schema-${schema}`] && (
+                            <div className="explorer-children">
+                              {Object.entries(tables)
+                                .sort(([a], [b]) => a.localeCompare(b))
+                                .map(([tableName, columns]) => {
+                                  // Find the full table model for this table
+                                  const tableModel = Array.isArray(models) ? models.find(model => 
+                                    model.name === tableName
+                                  ) : null;
+                                  
+                                  return (
+                                  <div key={tableName} className="explorer-item">
+                                    <div 
+                                      className="explorer-folder" 
+                                      onClick={() => {
+                                        toggleFolder(`table-${schema}-${tableName}`);
+                                        if (onTableSelect && tableModel) {
+                                          onTableSelect(tableModel);
+                                        }
+                                        if (onTableDocumentationSelect && tableModel) {
+                                          onTableDocumentationSelect(tableModel);
+                                        }
+                                      }}
+                                      onContextMenu={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        showContextMenu(e, 'table', tableModel || { name: tableName, schema: schema });
+                                      }}
+                                      style={{ cursor: 'pointer' }}
+                                    >
+                                      <i className={`bi ${expandedFolders[`table-${schema}-${tableName}`] ? 'bi-chevron-down' : 'bi-chevron-right'} me-1`}></i>
+                                      <i className="bi bi-table me-2"></i>
+                                      <span>{tableName}</span>
+                                    </div>
+                                  {expandedFolders[`table-${schema}-${tableName}`] && (
+                                    <div className="explorer-children">
+                                      {columns.map((column: any) => (
+                                        <div 
+                                          key={column.name} 
+                                          className="explorer-file"
+                                          onClick={() => {
+                                            if (onColumnSelect) {
+                                              onColumnSelect(column.name);
+                                            }
+                                          }}
+                                          onContextMenu={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            showContextMenu(e, 'column', column);
+                                          }}
+                                          style={{ cursor: 'pointer' }}
+                                        >
+                                          <i className="bi bi-columns me-2"></i>
+                                          <span>{column.name}{column.spatial_type === 'point' ? <span style={{color: '#aa0000'}}>*</span> : column.spatial_type === 'polyline' ? <span style={{color: '#aa0000'}}>**</span> : column.spatial_type === 'polygon' ? <span style={{color: '#aa0000'}}>***</span> : ''}</span>
+                                          <span className="text-muted small ms-2">({column.type})</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                   </div>
-                ))}
+                )}
+              </div>
 
               {/* Saved Queries Folder */}
               <div className="explorer-item">
