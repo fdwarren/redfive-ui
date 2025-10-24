@@ -125,21 +125,6 @@ const ChartTab: React.FC<ChartTabProps> = ({
       }];
     }
 
-    // Log the filtering information
-    console.log('🔍 Data Filtering Info:');
-    console.log(`- Using filtered data: ${filteredData && filteredData.length > 0 ? 'Yes' : 'No'}`);
-    console.log(`- Original query results: ${queryResults.length} rows`);
-    console.log(`- Filtered data: ${dataToUse.length} rows`);
-    console.log(`- Selected series values: ${selectedSeriesValues ? selectedSeriesValues.join(', ') : 'None'}`);
-    console.log(`- Number of series: ${seriesConfig.length}`);
-    
-    // Log the series configuration
-    console.log('📈 Series Configuration (Formatted JSON):');
-    console.log(JSON.stringify(seriesConfig, null, 2));
-    
-    // Log the chart data being sent to the chart in formatted JSON
-    console.log('📊 Chart Data (Formatted JSON):');
-    console.log(JSON.stringify(chartData, null, 2));
 
 
     const chartOptions = {
@@ -182,9 +167,6 @@ const ChartTab: React.FC<ChartTabProps> = ({
       height: containerDimensions.height > 0 ? containerDimensions.height : 300
     };
 
-    // Log the complete chart options being passed to AgCharts
-    console.log('📈 Chart Options (Formatted JSON):');
-    console.log(JSON.stringify(chartOptions, null, 2));
 
     return chartOptions;
   }, [chartConfig, queryResults, containerDimensions]);

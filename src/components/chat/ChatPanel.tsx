@@ -43,12 +43,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
             // Write SQL to query editor
             if (onSqlGenerated) {
               onSqlGenerated(response.data.sql);
-            } else {
             }
             
             const aiMessage = { 
               id: Date.now() + 1, 
-              text: "Your SQL is in the query editor.", 
+              text: onSqlGenerated ? "Your SQL is in the query editor." : `Generated SQL:\n\`\`\`sql\n${response.data.sql}\n\`\`\``, 
               sender: 'ai' as const 
             };
             setChatMessages(prev => [...prev, aiMessage]);

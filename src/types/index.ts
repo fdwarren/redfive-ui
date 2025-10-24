@@ -26,6 +26,6 @@ export interface ChatMessage {
 export interface Tab {
   id: string;
   name: string;
-  content: string;
-  isDirty: boolean;
+  queryText: string;
+  results: TabResults;
 }

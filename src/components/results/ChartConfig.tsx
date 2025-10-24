@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import simpleChartSchema from '../../assets/simple-chart.schema.json';
 
 interface ChartConfigProps {
@@ -53,6 +53,32 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
     return initialConfig?.selectedSeriesValues || [];
   });
 
+  // Ref to track previous config to avoid unnecessary updates
+  const prevConfigRef = useRef<any>(null);
+
+  // Reset state when initialConfig changes (e.g., when switching tabs)
+  useEffect(() => {
+    if (initialConfig) {
+      setConfig({
+        chart_type: initialConfig.chart_type || 'bar',
+        x_key: initialConfig.x_key || '',
+        y_key: initialConfig.y_key || '',
+        series_key: initialConfig.series_key || '',
+        series: initialConfig.series || []
+      });
+      setSelectedSeriesValues(initialConfig.selectedSeriesValues || []);
+    } else {
+      setConfig({
+        chart_type: 'bar',
+        x_key: '',
+        y_key: '',
+        series_key: '',
+        series: []
+      });
+      setSelectedSeriesValues([]);
+    }
+  }, [initialConfig]);
+
 
   // Get available chart types from schema
   const chartTypes = useMemo(() => {
@@ -86,9 +112,9 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
 
   // Update series when x_key, y_key, series_key, or chart_type change
   useEffect(() => {
-    if (config.x_key && config.y_key && config.series_key && filteredData && filteredData.length > 0) {
-      // Get unique values from the series_key column using filtered data
-      const uniqueSeriesValues = [...new Set(filteredData.map(row => row[config.series_key]).filter(val => val !== null && val !== undefined))];
+    if (config.x_key && config.y_key && config.series_key && queryResults && queryResults.length > 0) {
+      // Get unique values from the series_key column
+      const uniqueSeriesValues = [...new Set(queryResults.map(row => row[config.series_key]).filter(val => val !== null && val !== undefined))];
       
       const newSeries = uniqueSeriesValues.map(seriesValue => ({
         type: config.chart_type,
@@ -99,24 +125,33 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
       
       setConfig(prev => ({
         ...prev,
-        series: newSeries,
-        filteredData: filteredData,
-        selectedSeriesValues: selectedSeriesValues
+        series: newSeries
       }));
     } else {
       setConfig(prev => ({
         ...prev,
-        series: [],
-        filteredData: queryResults,
-        selectedSeriesValues: selectedSeriesValues
+        series: []
       }));
     }
-  }, [config.x_key, config.y_key, config.series_key, config.chart_type, filteredData, selectedSeriesValues, queryResults]);
+  }, [config.x_key, config.y_key, config.series_key, config.chart_type, queryResults]);
 
   // Notify parent of config changes
   useEffect(() => {
-    onConfigChange(config);
-  }, [config, onConfigChange]);
+    // Only notify if config has meaningful changes and avoid empty configs
+    if (config.x_key && config.y_key) {
+      const newConfig = {
+        ...config,
+        filteredData: filteredData,
+        selectedSeriesValues: selectedSeriesValues
+      };
+      
+      // Only call onConfigChange if the config actually changed
+      if (JSON.stringify(newConfig) !== JSON.stringify(prevConfigRef.current)) {
+        prevConfigRef.current = newConfig;
+        onConfigChange(newConfig);
+      }
+    }
+  }, [config.x_key, config.y_key, config.series_key, config.chart_type, config.series, onConfigChange]);
 
   const handleChartTypeChange = (chartType: string) => {
     setConfig(prev => ({
@@ -144,6 +179,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
   };
 
   const handleSeriesKeyChange = (seriesKey: string) => {
+    // Batch both state updates together
     setConfig(prev => ({
       ...prev,
       series_key: seriesKey
@@ -155,11 +191,24 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
 
   const handleSeriesValueToggle = (seriesValue: string) => {
     setSelectedSeriesValues(prev => {
-      if (prev.includes(seriesValue)) {
-        return prev.filter(val => val !== seriesValue);
-      } else {
-        return [...prev, seriesValue];
+      const newValues = prev.includes(seriesValue)
+        ? prev.filter(val => val !== seriesValue)
+        : [...prev, seriesValue];
+      
+      // Update config immediately with new values
+      if (config.x_key && config.y_key) {
+        const newFilteredData = config.series_key && newValues.length > 0
+          ? queryResults.filter(row => newValues.includes(row[config.series_key]))
+          : queryResults;
+          
+        onConfigChange({
+          ...config,
+          filteredData: newFilteredData,
+          selectedSeriesValues: newValues
+        });
       }
+      
+      return newValues;
     });
   };
 
