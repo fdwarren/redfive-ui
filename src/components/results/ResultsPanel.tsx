@@ -99,7 +99,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
           />
         </div>
 
-        <div style={{ display: activeTab === 'analysis' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
+        <div style={{ display: activeTab === 'analysis' ? 'flex' : 'none', height: '100%', flexDirection: 'column', overflow: 'hidden' }}>
           <ChartTab 
             metadata={metadata} 
             queryResults={results} 

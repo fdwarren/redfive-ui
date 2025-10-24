@@ -21,6 +21,9 @@ function App() {
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [selectedSchema, setSelectedSchema] = useState<string | null>(null);
   const [spatialColumns, setSpatialColumns] = useState<string[]>([]);
+  const [selectedQuery, setSelectedQuery] = useState<any>(null);
+  const [generatedSql, setGeneratedSql] = useState<string | null>(null);
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
 
 
   // Panel resize handlers
@@ -59,8 +62,26 @@ function App() {
     setSelectedTable(table);
   }, []);
 
-  const handleSqlGenerated = useCallback(() => {
-    // This will be handled by the TabWrapper component
+  const handleSqlGenerated = useCallback((sql: string) => {
+    // Pass the generated SQL to the SimpleTabManager
+    // This will be handled by updating the active tab's query text
+    setGeneratedSql(sql);
+  }, []);
+
+  const handleQuerySelect = useCallback((query: any) => {
+    setSelectedQuery(query);
+  }, []);
+
+  const handleQueryLoaded = useCallback(() => {
+    setSelectedQuery(null);
+  }, []);
+
+  const handleSqlLoaded = useCallback(() => {
+    setGeneratedSql(null);
+  }, []);
+
+  const handleChatToggle = useCallback(() => {
+    setIsChatCollapsed(prev => !prev);
   }, []);
 
   return (
@@ -80,6 +101,7 @@ function App() {
                 onGenerateSelect={handleGenerateSelect}
                 onSpatialColumnsLoaded={handleSpatialColumnsLoaded}
                 onTableDocumentationSelect={handleTableDocumentationSelect}
+                onQuerySelect={handleQuerySelect}
               />
             </div>
 
@@ -100,6 +122,10 @@ function App() {
                   onSpatialColumnsLoaded={handleSpatialColumnsLoaded}
                   onTableDocumentationSelect={handleTableDocumentationSelect}
                   onSqlGenerated={handleSqlGenerated}
+                  selectedQuery={selectedQuery}
+                  onQueryLoaded={handleQueryLoaded}
+                  generatedSql={generatedSql}
+                  onSqlLoaded={handleSqlLoaded}
                   className="h-100"
                 />
             </div>
@@ -108,11 +134,15 @@ function App() {
             <ResizeHandle onResize={handleRightPanelResize} />
 
             {/* Right Panel - Chat */}
-            <div style={{ width: `${rightPanelWidth}px`, flexShrink: 0, transition: 'width 0.3s ease' }}>
+            <div style={{ 
+              width: isChatCollapsed ? '40px' : `${rightPanelWidth}px`, 
+              flexShrink: 0, 
+              transition: 'width 0.3s ease' 
+            }}>
               <ChatPanel 
                 onSqlGenerated={handleSqlGenerated} 
-                isCollapsed={false}
-                onToggle={() => {}}
+                isCollapsed={isChatCollapsed}
+                onToggle={handleChatToggle}
               />
             </div>
           </div>

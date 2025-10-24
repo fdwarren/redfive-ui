@@ -28,4 +28,30 @@ export interface Tab {
   name: string;
   queryText: string;
   results: TabResults;
+  originalQuery?: SavedQueryResponse; // Store original query data for loaded queries
+}
+
+export interface SavedQueryRequest {
+  guid: string;
+  name: string;
+  description: string;
+  sqlText: string;
+  chartConfig: any;
+  isPublic: boolean;
+}
+
+export interface SavedQueryResponse {
+  guid: string;
+  name: string;
+  description: string;
+  sqlText: string;
+  chartConfig: any;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedQueryListResponse {
+  queries: SavedQueryResponse[];
+  total: number;
 }

@@ -4,6 +4,7 @@ import ResultsPanel from '../results/ResultsPanel';
 import ResultsDetailsPanel from '../results/ResultsDetailsPanel';
 import SchemaDocumentation from './SchemaDocumentation';
 import ResizeHandle from '../layout/ResizeHandle';
+import VerticalResizeHandle from '../layout/VerticalResizeHandle';
 import DataService from '../../services/DataService';
 import type { TabResults, Tab } from '../../types';
 
@@ -72,6 +73,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
   const [isExecuting, setIsExecuting] = useState(false);
   const [isResultsDetailsCollapsed, setIsResultsDetailsCollapsed] = useState(false);
   const [resultsDetailsWidth, setResultsDetailsWidth] = useState(300);
+  const [queryEditorHeight, setQueryEditorHeight] = useState(50); // Percentage
   const editorRef = useRef<any>(null);
   
   // Refs to avoid stale closures in Monaco Editor commands
@@ -473,6 +475,13 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
     setIsResultsDetailsCollapsed(prev => !prev);
   }, []);
 
+  const handleVerticalResize = useCallback((deltaY: number) => {
+    setQueryEditorHeight(prev => {
+      const newHeight = prev + (deltaY / window.innerHeight) * 100;
+      return Math.max(20, Math.min(80, newHeight)); // Min 20%, Max 80%
+    });
+  }, []);
+
   // Compute the selected row object for the details panel
   const selectedRow = useMemo(() => {
     return activeTab?.results.selectedRowIndex !== null ? activeTab.results.results[activeTab.results.selectedRowIndex] : null;
@@ -537,7 +546,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
           /* Query Editor and Results */
           <>
             {/* Query Editor */}
-            <div className="flex-grow-1" style={{ minHeight: 0 }}>
+            <div style={{ height: `${queryEditorHeight}%`, minHeight: 0 }}>
               <div className="bg-light border-start d-flex flex-column h-100" style={{ overflow: 'hidden' }}>
                 <div className="flex-grow-1" style={{ height: '100%', overflow: 'hidden' }}>
                   <Editor
@@ -714,8 +723,11 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
               </div>
             </div>
 
+            {/* Vertical Resize Handle */}
+            <VerticalResizeHandle onResize={handleVerticalResize} />
+
             {/* Results Section */}
-            <div className="d-flex" style={{ height: '50%', minHeight: '300px' }}>
+            <div className="d-flex" style={{ height: `${100 - queryEditorHeight}%`, minHeight: '200px' }}>
               {/* Results Panel */}
               <div className="flex-grow-1" style={{ minWidth: 0, height: '100%' }}>
                 <ResultsPanel 

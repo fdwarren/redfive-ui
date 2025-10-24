@@ -1,6 +1,18 @@
 import React, { useState, useEffect, memo, useMemo } from 'react';
 import DataService from '../../services/DataService';
 
+// Define the SavedQueryResponse interface locally to avoid import issues
+interface SavedQueryResponse {
+  guid: string;
+  name: string;
+  description: string;
+  sqlText: string;
+  chartConfig: any;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface ModelExplorerProps {
   className?: string;
   onTableSelect?: (table: any) => void;
@@ -10,9 +22,10 @@ interface ModelExplorerProps {
   onGenerateSelect?: (table: any) => void;
   onSpatialColumnsLoaded?: (spatialColumns: string[]) => void;
   onTableDocumentationSelect?: (table: any) => void;
+  onQuerySelect?: (query: any) => void;
 }
 
-const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect, onSpatialColumnsLoaded, onTableDocumentationSelect }) => {
+const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect, onSpatialColumnsLoaded, onTableDocumentationSelect, onQuerySelect }) => {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'databases': true,
     'production': true,
@@ -21,6 +34,8 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
   });
   const [models, setModels] = useState<any[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [savedQueries, setSavedQueries] = useState<SavedQueryResponse[]>([]);
+  const [isLoadingQueries, setIsLoadingQueries] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     show: boolean;
     x: number;
@@ -164,9 +179,38 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
     }
   };
 
+  const loadSavedQueries = async () => {
+    setIsLoadingQueries(true);
+    try {
+      const response = await dataService.listQueries();
+      
+      if (response.success && response.data) {
+        // Extract queries array from the response structure
+        let queriesArray = [];
+        if (Array.isArray(response.data)) {
+          queriesArray = response.data;
+        } else if (response.data.queries && Array.isArray(response.data.queries)) {
+          queriesArray = response.data.queries;
+        } else {
+          setSavedQueries([]);
+          return;
+        }
+        
+        setSavedQueries(queriesArray);
+      } else {
+        setSavedQueries([]);
+      }
+    } catch (error) {
+      setSavedQueries([]);
+    } finally {
+      setIsLoadingQueries(false);
+    }
+  };
+
   // Load models on component mount
   useEffect(() => {
     loadModels();
+    loadSavedQueries();
   }, []);
 
   // Notify parent when models change
@@ -215,11 +259,14 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
           <div className="d-flex gap-1">
             <button 
               className="btn btn-sm btn-outline-secondary"
-              onClick={loadModels}
-              disabled={isLoadingModels}
-              title="Reload models"
+              onClick={() => {
+                loadModels();
+                loadSavedQueries();
+              }}
+              disabled={isLoadingModels || isLoadingQueries}
+              title="Reload models and queries"
             >
-              {isLoadingModels ? (
+              {(isLoadingModels || isLoadingQueries) ? (
                 <i className="bi bi-hourglass-split"></i>
               ) : (
                 <i className="bi bi-arrow-clockwise"></i>
@@ -374,18 +421,38 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                 </div>
                 {expandedFolders['saved-queries'] && (
                   <div className="explorer-children">
-                    <div className="explorer-file">
-                      <i className="bi bi-file-text me-2"></i>
-                      <span>user_analysis.sql</span>
-                    </div>
-                    <div className="explorer-file">
-                      <i className="bi bi-file-text me-2"></i>
-                      <span>sales_report.sql</span>
-                    </div>
-                    <div className="explorer-file">
-                      <i className="bi bi-file-text me-2"></i>
-                      <span>inventory_check.sql</span>
-                    </div>
+                    {isLoadingQueries ? (
+                      <div className="p-2 text-center">
+                        <div className="spinner-border spinner-border-sm text-muted" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <div className="small text-muted mt-1">Loading queries...</div>
+                      </div>
+                    ) : savedQueries.length > 0 ? (
+                      savedQueries.map((query) => (
+                        <div 
+                          key={query.guid} 
+                          className="explorer-file"
+                          onClick={() => {
+                            if (onQuerySelect) {
+                              onQuerySelect(query);
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <i className="bi bi-file-text me-2"></i>
+                          <span>{query.name}</span>
+                          {query.isPublic && (
+                            <i className="bi bi-globe ms-2 text-info" title="Public query"></i>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2 text-center text-muted">
+                        <i className="bi bi-file-text fs-4 mb-1"></i>
+                        <div className="small">No saved queries</div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -23,30 +23,85 @@ const ChartTab: React.FC<ChartTabProps> = ({
 }) => {
   const [showConfig, setShowConfig] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
+  const [chartHeight, setChartHeight] = useState(400);
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  const heightUpdateTimeoutRef = useRef<number | null>(null);
 
-  // Measure container dimensions
+  // Debounced height update function
+  const debouncedUpdateHeight = (newHeight: number) => {
+    if (heightUpdateTimeoutRef.current) {
+      clearTimeout(heightUpdateTimeoutRef.current);
+    }
+    
+    heightUpdateTimeoutRef.current = setTimeout(() => {
+      setChartHeight(newHeight);
+    }, 50); // Small delay to prevent flickering
+  };
+
+  // Resize observer to track container height changes
   useEffect(() => {
-    const measureContainer = () => {
+    const updateChartHeight = () => {
       if (chartContainerRef.current) {
-        const rect = chartContainerRef.current.getBoundingClientRect();
-        setContainerDimensions({ width: rect.width, height: rect.height });
+        const containerHeight = chartContainerRef.current.clientHeight;
+        if (containerHeight > 0 && containerHeight !== chartHeight) {
+          debouncedUpdateHeight(containerHeight);
+        }
       }
     };
 
-    measureContainer();
-    
-    // Set up ResizeObserver to handle dynamic resizing
-    const resizeObserver = new ResizeObserver(measureContainer);
-    if (chartContainerRef.current) {
-      resizeObserver.observe(chartContainerRef.current);
-    }
+    // Delay initial height calculation to ensure container is properly sized
+    const timeoutId = setTimeout(() => {
+      updateChartHeight();
+    }, 100);
+
+    // Set up resize observer
+    const resizeObserver = new ResizeObserver(() => {
+      updateChartHeight();
+    });
+
+    // Also listen for window resize events
+    const handleResize = () => {
+      updateChartHeight();
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Set up observer after a short delay to ensure container is ready
+    const observerTimeoutId = setTimeout(() => {
+      if (chartContainerRef.current) {
+        resizeObserver.observe(chartContainerRef.current);
+      }
+    }, 200);
 
     return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(observerTimeoutId);
+      if (heightUpdateTimeoutRef.current) {
+        clearTimeout(heightUpdateTimeoutRef.current);
+      }
       resizeObserver.disconnect();
+      window.removeEventListener('resize', handleResize);
     };
-  }, [showConfig]);
+  }, [chartHeight]);
+
+  // Effect to handle initial height setup when data changes
+  useEffect(() => {
+    const updateHeight = () => {
+      if (chartContainerRef.current) {
+        const containerHeight = chartContainerRef.current.clientHeight;
+        if (containerHeight > 0) {
+          debouncedUpdateHeight(containerHeight);
+        }
+      }
+    };
+
+    // Only update height once when data changes, not multiple times
+    const timeoutId = setTimeout(updateHeight, 200);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [queryResults?.length, chartConfig?.chart_type]); // Only re-run when data structure changes
 
   // Create chart configurations based on user configuration
   const chartOptions = useMemo(() => {
@@ -163,13 +218,13 @@ const ChartTab: React.FC<ChartTabProps> = ({
           }
         }
       },
-      width: containerDimensions.width > 0 ? containerDimensions.width : 400,
-      height: containerDimensions.height > 0 ? containerDimensions.height : 300
+      width: '100%',
+      height: chartHeight
     };
 
 
     return chartOptions;
-  }, [chartConfig, queryResults, containerDimensions]);
+  }, [chartConfig, queryResults, chartHeight]);
 
   return (
     <div className="flex-grow-1 d-flex position-relative" style={{ height: '100%', overflow: 'hidden' }}>

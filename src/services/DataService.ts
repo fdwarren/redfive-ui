@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '../utils/apiConfig';
+import type { SavedQueryRequest } from '../types';
 
 interface DataServiceResponse {
   success: boolean;
@@ -382,6 +383,122 @@ class DataService {
     }
 
     return accessToken;
+  }
+
+  /**
+   * Save a query for the authenticated user
+   * @param queryData - The query data to save
+   * @returns Promise with the saved query response
+   */
+  async saveQuery(queryData: SavedQueryRequest): Promise<DataServiceResponse> {
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      // Get a valid access token (refresh if necessary)
+      const accessToken = await this.getValidToken();
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      } else if (this.apiKey) {
+        // Fallback to API key if no valid token
+        headers['Authorization'] = `Bearer ${this.apiKey}`;
+      }
+
+      const response = await fetch(`${this.baseUrl}/save-query`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(queryData),
+        mode: 'cors',
+        credentials: 'include',
+        cache: 'no-cache',
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      return {
+        success: true,
+        data: data,
+        message: 'Query saved successfully'
+      };
+
+    } catch (error) {
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        errorMessage = 'Network error: Unable to connect to the data service';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      return {
+        success: false,
+        error: errorMessage,
+        message: 'Failed to save query'
+      };
+    }
+  }
+
+  /**
+   * Get all saved queries for the authenticated user
+   * @returns Promise with the list of saved queries
+   */
+  async listQueries(): Promise<DataServiceResponse> {
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      // Get a valid access token (refresh if necessary)
+      const accessToken = await this.getValidToken();
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      } else if (this.apiKey) {
+        // Fallback to API key if no valid token
+        headers['Authorization'] = `Bearer ${this.apiKey}`;
+      }
+
+      const response = await fetch(`${this.baseUrl}/list-queries`, {
+        method: 'GET',
+        headers,
+        mode: 'cors',
+        credentials: 'include',
+        cache: 'no-cache',
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      return {
+        success: true,
+        data: data,
+        message: 'Queries retrieved successfully'
+      };
+
+    } catch (error) {
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        errorMessage = 'Network error: Unable to connect to the data service';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      return {
+        success: false,
+        error: errorMessage,
+        message: 'Failed to list queries'
+      };
+    }
   }
 
  
