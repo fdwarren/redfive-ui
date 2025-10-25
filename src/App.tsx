@@ -24,6 +24,11 @@ function App() {
   const [selectedQuery, setSelectedQuery] = useState<any>(null);
   const [generatedSql, setGeneratedSql] = useState<string | null>(null);
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
+  const [refreshQueriesFn, setRefreshQueriesFn] = useState<(() => void) | null>(null);
+  // Debug logging
+  if (selectedSchema) {
+    console.log('App state - selectedSchema:', selectedSchema);
+  }
 
 
   // Panel resize handlers
@@ -43,7 +48,10 @@ function App() {
   }, []);
 
   const handleSchemaSelect = useCallback((schema: string) => {
+    console.log('🔥 APP: Schema selected:', schema);
     setSelectedSchema(schema);
+    // Clear selected table when schema is selected to show all tables in the schema
+    setSelectedTable(null);
   }, []);
 
   const handleModelsLoaded = useCallback((models: any[]) => {
@@ -77,12 +85,25 @@ function App() {
   }, []);
 
   const handleSqlLoaded = useCallback(() => {
+    console.log('🔥 APP: SQL loaded, clearing generatedSql');
     setGeneratedSql(null);
   }, []);
 
   const handleChatToggle = useCallback(() => {
     setIsChatCollapsed(prev => !prev);
   }, []);
+
+  const handleQuerySaved = useCallback(() => {
+    // Refresh the saved queries in ModelExplorer
+    if (refreshQueriesFn) {
+      refreshQueriesFn();
+    }
+  }, [refreshQueriesFn]);
+
+  const handleRefreshQueries = useCallback((refreshFn: () => void) => {
+    setRefreshQueriesFn(() => refreshFn);
+  }, []);
+
 
   return (
     <AuthProvider>
@@ -102,6 +123,7 @@ function App() {
                 onSpatialColumnsLoaded={handleSpatialColumnsLoaded}
                 onTableDocumentationSelect={handleTableDocumentationSelect}
                 onQuerySelect={handleQuerySelect}
+                onRefreshQueries={handleRefreshQueries}
               />
             </div>
 
@@ -126,6 +148,7 @@ function App() {
                   onQueryLoaded={handleQueryLoaded}
                   generatedSql={generatedSql}
                   onSqlLoaded={handleSqlLoaded}
+                  onQuerySaved={handleQuerySaved}
                   className="h-100"
                 />
             </div>

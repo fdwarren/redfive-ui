@@ -3,10 +3,11 @@ import { Editor } from '@monaco-editor/react';
 import ResultsPanel from '../results/ResultsPanel';
 import ResultsDetailsPanel from '../results/ResultsDetailsPanel';
 import SchemaDocumentation from './SchemaDocumentation';
+import SaveQueryModal from './SaveQueryModal';
 import ResizeHandle from '../layout/ResizeHandle';
 import VerticalResizeHandle from '../layout/VerticalResizeHandle';
 import DataService from '../../services/DataService';
-import type { TabResults, Tab } from '../../types';
+import type { Tab, SavedQueryRequest } from '../../types';
 
 
 interface SimpleTabManagerProps {
@@ -14,6 +15,8 @@ interface SimpleTabManagerProps {
   selectedSchema?: string;
   models?: any[];
   spatialColumns?: string[];
+  selectedQuery?: any;
+  generatedSql?: string | null;
   onTableSelect?: (table: any) => void;
   onSchemaSelect?: (schema: string) => void;
   onModelsLoaded?: (models: any[]) => void;
@@ -21,6 +24,9 @@ interface SimpleTabManagerProps {
   onSpatialColumnsLoaded?: (columns: string[]) => void;
   onTableDocumentationSelect?: (table: any) => void;
   onSqlGenerated?: (sql: string) => void;
+  onQueryLoaded?: () => void;
+  onSqlLoaded?: () => void;
+  onQuerySaved?: () => void;
   className?: string;
 }
 
@@ -29,13 +35,18 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
   selectedSchema,
   models = [],
   spatialColumns = [],
-  onTableSelect,
-  onSchemaSelect,
-  onModelsLoaded,
-  onGenerateSelect,
-  onSpatialColumnsLoaded,
-  onTableDocumentationSelect,
-  onSqlGenerated,
+  selectedQuery,
+  generatedSql: _generatedSql,
+  onTableSelect: _onTableSelect,
+  onSchemaSelect: _onSchemaSelect,
+  onModelsLoaded: _onModelsLoaded,
+  onGenerateSelect: _onGenerateSelect,
+  onSpatialColumnsLoaded: _onSpatialColumnsLoaded,
+  onTableDocumentationSelect: _onTableDocumentationSelect,
+  onSqlGenerated: _onSqlGenerated,
+  onQueryLoaded: _onQueryLoaded,
+  onSqlLoaded: _onSqlLoaded,
+  onQuerySaved,
   className = ''
 }) => {
   const [tabs, setTabs] = useState<Tab[]>([
@@ -71,9 +82,11 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
   const [activeTabId, setActiveTabId] = useState('1');
   const [tabCounter, setTabCounter] = useState(2);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [isResultsDetailsCollapsed, setIsResultsDetailsCollapsed] = useState(false);
+  const [isResultsDetailsCollapsed, setIsResultsDetailsCollapsed] = useState(true);
   const [resultsDetailsWidth, setResultsDetailsWidth] = useState(300);
   const [queryEditorHeight, setQueryEditorHeight] = useState(50); // Percentage
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const editorRef = useRef<any>(null);
   
   // Refs to avoid stale closures in Monaco Editor commands
@@ -118,10 +131,67 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
     currentTabsRef.current = tabs;
   }, [tabs]);
 
+  // Handle selected query from ModelExplorer
+  useEffect(() => {
+    if (selectedQuery) {
+      // Create a new tab for the selected query
+      const newTab: Tab = {
+        id: tabCounter.toString(),
+        name: selectedQuery.name || 'Saved Query',
+        queryText: selectedQuery.sqlText || '',
+        results: {
+          results: [],
+          columns: [],
+          rowCount: 0,
+          executionError: null,
+          executionMetadata: null,
+          selectedRowIndex: null,
+          chartConfig: selectedQuery.chartConfig || null
+        },
+        originalQuery: selectedQuery
+      };
+      
+      setTabs(prev => [...prev, newTab]);
+      setTabCounter(prev => prev + 1);
+      setActiveTabId(newTab.id);
+      
+      // Notify parent that query was loaded
+      if (_onQueryLoaded) {
+        _onQueryLoaded();
+      }
+    }
+  }, [selectedQuery, tabCounter, _onQueryLoaded]);
+
+  // Handle showing schema documentation when schema is selected
+  useEffect(() => {
+    if (selectedSchema) {
+      console.log('🔥 SIMPLE TAB MANAGER: Schema selected, switching to docs tab:', selectedSchema);
+      setActiveTabId('docs');
+    }
+  }, [selectedSchema]);
+
+  // Handle generated SQL from AI assistant
+  useEffect(() => {
+    if (_generatedSql) {
+      console.log('🔥 SIMPLE TAB MANAGER: Generated SQL received:', _generatedSql);
+      // Update the active tab's query text with the generated SQL
+      setTabs(prev => prev.map(tab => 
+        tab.id === activeTabId ? { ...tab, queryText: _generatedSql } : tab
+      ));
+      // Notify parent that SQL was loaded
+      if (_onSqlLoaded) {
+        _onSqlLoaded();
+      }
+    }
+  }, [_generatedSql, activeTabId, _onSqlLoaded]);
+
   // Initialize DataService
   const dataService = useMemo(() => new DataService(), []);
 
   const activeTab = tabs.find(tab => tab.id === activeTabId);
+  
+  // Debug logging
+  console.log('🔥 SIMPLE TAB MANAGER RENDER: activeTabId:', activeTabId, 'selectedSchema:', selectedSchema);
 
   // Update completion provider when models change
   useEffect(() => {
@@ -148,28 +218,97 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
 
             const suggestions: any[] = [];
 
-            // Add SQL keywords
+            // Add PostgreSQL SELECT keywords
             const sqlKeywords = [
+              // Core SELECT
               { label: 'SELECT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'SELECT', documentation: 'Select data from tables' },
               { label: 'FROM', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'FROM', documentation: 'Specify the source table(s)' },
               { label: 'WHERE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'WHERE', documentation: 'Filter rows based on conditions' },
-              { label: 'INSERT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'INSERT', documentation: 'Insert new rows into a table' },
-              { label: 'UPDATE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'UPDATE', documentation: 'Modify existing rows' },
-              { label: 'DELETE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DELETE', documentation: 'Remove rows from a table' },
-              { label: 'CREATE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'CREATE', documentation: 'Create database objects' },
-              { label: 'DROP', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DROP', documentation: 'Remove database objects' },
-              { label: 'ALTER', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ALTER', documentation: 'Modify database objects' },
+              { label: 'GROUP BY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'GROUP BY', documentation: 'Group rows by columns' },
+              { label: 'HAVING', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'HAVING', documentation: 'Filter groups' },
+              { label: 'ORDER BY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ORDER BY', documentation: 'Sort the result set' },
+              { label: 'LIMIT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LIMIT', documentation: 'Limit the number of rows returned' },
+              { label: 'OFFSET', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'OFFSET', documentation: 'Skip a number of rows' },
+              { label: 'DISTINCT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DISTINCT', documentation: 'Remove duplicate rows' },
+              { label: 'ALL', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ALL', documentation: 'Include all rows' },
+              { label: 'AS', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'AS', documentation: 'Create an alias' },
+
+              // Joins
               { label: 'JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'JOIN', documentation: 'Join tables together' },
               { label: 'INNER JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'INNER JOIN', documentation: 'Inner join tables' },
               { label: 'LEFT JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LEFT JOIN', documentation: 'Left outer join tables' },
               { label: 'RIGHT JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'RIGHT JOIN', documentation: 'Right outer join tables' },
-              { label: 'ORDER BY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ORDER BY', documentation: 'Sort the result set' },
-              { label: 'GROUP BY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'GROUP BY', documentation: 'Group rows by columns' },
-              { label: 'HAVING', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'HAVING', documentation: 'Filter groups' },
+              { label: 'FULL JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'FULL JOIN', documentation: 'Full outer join tables' },
+              { label: 'CROSS JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'CROSS JOIN', documentation: 'Cross join tables' },
+              { label: 'NATURAL JOIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'NATURAL JOIN', documentation: 'Natural join tables' },
+              { label: 'ON', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ON', documentation: 'Specify join condition' },
+              { label: 'USING', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'USING', documentation: 'Specify columns for natural join' },
+
+              // Subqueries and set operators
               { label: 'UNION', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'UNION', documentation: 'Combine result sets' },
-              { label: 'DISTINCT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DISTINCT', documentation: 'Remove duplicate rows' },
-              { label: 'LIMIT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LIMIT', documentation: 'Limit the number of rows returned' },
-              { label: 'OFFSET', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'OFFSET', documentation: 'Skip a number of rows' }
+              { label: 'UNION ALL', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'UNION ALL', documentation: 'Combine result sets including duplicates' },
+              { label: 'INTERSECT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'INTERSECT', documentation: 'Find common rows' },
+              { label: 'EXCEPT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'EXCEPT', documentation: 'Find rows in first set but not second' },
+              { label: 'IN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'IN', documentation: 'Check if value is in list' },
+              { label: 'EXISTS', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'EXISTS', documentation: 'Check if subquery returns rows' },
+              { label: 'ANY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ANY', documentation: 'Compare with any value in list' },
+              { label: 'SOME', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'SOME', documentation: 'Compare with some values in list' },
+
+              // Aggregates
+              { label: 'COUNT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'COUNT', documentation: 'Count number of rows' },
+              { label: 'SUM', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'SUM', documentation: 'Sum of values' },
+              { label: 'AVG', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'AVG', documentation: 'Average of values' },
+              { label: 'MIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'MIN', documentation: 'Minimum value' },
+              { label: 'MAX', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'MAX', documentation: 'Maximum value' },
+
+              // Conditional / scalar functions
+              { label: 'CASE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'CASE', documentation: 'Conditional expression' },
+              { label: 'WHEN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'WHEN', documentation: 'Condition in CASE statement' },
+              { label: 'THEN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'THEN', documentation: 'Result in CASE statement' },
+              { label: 'ELSE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ELSE', documentation: 'Default result in CASE statement' },
+              { label: 'END', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'END', documentation: 'End of CASE statement' },
+              { label: 'COALESCE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'COALESCE', documentation: 'Return first non-null value' },
+              { label: 'NULLIF', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'NULLIF', documentation: 'Return null if values are equal' },
+              { label: 'GREATEST', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'GREATEST', documentation: 'Return largest value' },
+              { label: 'LEAST', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LEAST', documentation: 'Return smallest value' },
+              { label: 'CAST', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'CAST', documentation: 'Convert data type' },
+
+              // Filters and comparisons
+              { label: 'LIKE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LIKE', documentation: 'Pattern matching' },
+              { label: 'ILIKE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ILIKE', documentation: 'Case-insensitive pattern matching' },
+              { label: 'NOT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'NOT', documentation: 'Logical NOT operator' },
+              { label: 'AND', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'AND', documentation: 'Logical AND operator' },
+              { label: 'OR', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'OR', documentation: 'Logical OR operator' },
+              { label: 'BETWEEN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'BETWEEN', documentation: 'Check if value is between two values' },
+              { label: 'IS', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'IS', documentation: 'Check for null or boolean values' },
+              { label: 'IS NULL', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'IS NULL', documentation: 'Check if value is null' },
+              { label: 'IS NOT NULL', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'IS NOT NULL', documentation: 'Check if value is not null' },
+
+              // Sorting and windowing
+              { label: 'ASC', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ASC', documentation: 'Ascending sort order' },
+              { label: 'DESC', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DESC', documentation: 'Descending sort order' },
+              { label: 'ROW_NUMBER', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ROW_NUMBER', documentation: 'Row number window function' },
+              { label: 'RANK', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'RANK', documentation: 'Rank window function' },
+              { label: 'DENSE_RANK', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DENSE_RANK', documentation: 'Dense rank window function' },
+              { label: 'NTILE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'NTILE', documentation: 'NTILE window function' },
+              { label: 'OVER', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'OVER', documentation: 'Window function clause' },
+              { label: 'PARTITION BY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'PARTITION BY', documentation: 'Partition window function' },
+              { label: 'WINDOW', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'WINDOW', documentation: 'Define named window' },
+
+              // Common Table Expressions
+              { label: 'WITH', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'WITH', documentation: 'Common table expression' },
+              { label: 'RECURSIVE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'RECURSIVE', documentation: 'Recursive common table expression' },
+              { label: 'LATERAL', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'LATERAL', documentation: 'Lateral join' },
+
+              // Miscellaneous read-safe clauses
+              { label: 'VALUES', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'VALUES', documentation: 'Define values for INSERT' },
+              { label: 'FETCH', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'FETCH', documentation: 'Fetch rows from cursor' },
+              { label: 'NEXT', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'NEXT', documentation: 'Next row in cursor' },
+              { label: 'ONLY', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ONLY', documentation: 'Only rows, not including ties' },
+              { label: 'TOP', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'TOP', documentation: 'Top N rows' },
+              { label: 'EXPLAIN', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'EXPLAIN', documentation: 'Explain query execution plan' },
+              { label: 'ANALYZE', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'ANALYZE', documentation: 'Analyze query execution' },
+              { label: 'DISTINCT ON', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'DISTINCT ON', documentation: 'Distinct on specific columns' }
             ];
 
             sqlKeywords.forEach(keyword => {
@@ -482,13 +621,105 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
     });
   }, []);
 
+  const handleSaveQuery = useCallback(async () => {
+    if (activeTabId === 'docs') {
+      return; // Don't save the docs tab
+    }
+    
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    if (!activeTab) {
+      return;
+    }
+    
+    // Check if this is a previously saved query
+    if (activeTab.originalQuery) {
+      // Query was previously saved, save it silently
+      setIsSaving(true);
+      try {
+        const queryData: SavedQueryRequest = {
+          guid: activeTab.originalQuery.guid, // Use existing GUID
+          name: activeTab.originalQuery.name,
+          description: activeTab.originalQuery.description,
+          sqlText: activeTab.queryText,
+          chartConfig: activeTab.results.chartConfig,
+          isPublic: activeTab.originalQuery.isPublic
+        };
+
+        const response = await dataService.saveQuery(queryData);
+        
+        if (response.success) {
+          // Show success message (you could add a toast notification here)
+          console.log('Query saved successfully');
+          // Notify parent component that a query was saved
+          if (onQuerySaved) {
+            onQuerySaved();
+          }
+        } else {
+          throw new Error(response.error || 'Failed to save query');
+        }
+      } catch (error) {
+        console.error('Error saving query:', error);
+        // You could add a toast notification here for errors
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      // New query, show the save dialog
+      setIsSaveModalOpen(true);
+    }
+  }, [activeTabId, tabs, dataService, onQuerySaved]);
+
+  const handleSaveQuerySubmit = useCallback(async (data: { name: string; description: string; isPublic: boolean }) => {
+    if (activeTabId === 'docs') {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const activeTab = tabs.find(tab => tab.id === activeTabId);
+      if (!activeTab) {
+        throw new Error('No active tab found');
+      }
+
+      const queryData: SavedQueryRequest = {
+        guid: crypto.randomUUID(),
+        name: data.name,
+        description: data.description,
+        sqlText: activeTab.queryText,
+        chartConfig: activeTab.results.chartConfig,
+        isPublic: data.isPublic
+      };
+
+      const response = await dataService.saveQuery(queryData);
+      
+      if (response.success) {
+        setIsSaveModalOpen(false);
+        // Notify parent component that a query was saved
+        if (onQuerySaved) {
+          onQuerySaved();
+        }
+      } else {
+        throw new Error(response.error || 'Failed to save query');
+      }
+    } catch (error) {
+      console.error('Error saving query:', error);
+      // You could add a toast notification here
+    } finally {
+      setIsSaving(false);
+    }
+  }, [activeTabId, tabs, dataService, onQuerySaved]);
+
+  const handleSaveModalClose = useCallback(() => {
+    if (!isSaving) {
+      setIsSaveModalOpen(false);
+    }
+  }, [isSaving]);
+
   // Compute the selected row object for the details panel
   const selectedRow = useMemo(() => {
-    return activeTab?.results.selectedRowIndex !== null ? activeTab.results.results[activeTab.results.selectedRowIndex] : null;
+    return activeTab?.results.selectedRowIndex !== null && activeTab?.results.results ? activeTab.results.results[activeTab.results.selectedRowIndex] : null;
   }, [activeTab?.results.selectedRowIndex, activeTab?.results.results]);
 
-  // Memoize models to prevent unnecessary re-renders
-  const memoizedModels = useMemo(() => models, [models]);
 
   return (
     <div className={`d-flex flex-column h-100 ${className}`} style={{ overflow: 'hidden' }}>
@@ -597,13 +828,33 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
                       ]
                     },
                     keywords: [
-                      'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER',
-                      'TABLE', 'INDEX', 'VIEW', 'PROCEDURE', 'FUNCTION', 'TRIGGER', 'DATABASE', 'SCHEMA',
-                      'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'ON', 'AS', 'AND', 'OR', 'NOT', 'IN',
-                      'EXISTS', 'BETWEEN', 'LIKE', 'IS', 'NULL', 'ORDER', 'BY', 'GROUP', 'HAVING',
-                      'UNION', 'ALL', 'DISTINCT', 'TOP', 'LIMIT', 'OFFSET', 'ASC', 'DESC',
-                      'INT', 'VARCHAR', 'CHAR', 'TEXT', 'DECIMAL', 'FLOAT', 'DOUBLE', 'DATE', 'TIME',
-                      'DATETIME', 'TIMESTAMP', 'BOOLEAN', 'BLOB', 'JSON'
+                      // Core SELECT
+                      'SELECT', 'FROM', 'WHERE', 'GROUP', 'BY', 'HAVING', 'ORDER', 'LIMIT', 'OFFSET',
+                      'DISTINCT', 'ALL', 'AS',
+                      
+                      // Joins
+                      'JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL', 'CROSS', 'NATURAL', 'ON', 'USING',
+                      
+                      // Subqueries and set operators
+                      'UNION', 'INTERSECT', 'EXCEPT', 'IN', 'EXISTS', 'ANY', 'SOME',
+                      
+                      // Aggregates
+                      'COUNT', 'SUM', 'AVG', 'MIN', 'MAX',
+                      
+                      // Conditional / scalar functions
+                      'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'COALESCE', 'NULLIF', 'GREATEST', 'LEAST', 'CAST',
+                      
+                      // Filters and comparisons
+                      'LIKE', 'ILIKE', 'NOT', 'AND', 'OR', 'BETWEEN', 'IS', 'NULL',
+                      
+                      // Sorting and windowing
+                      'ASC', 'DESC', 'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'NTILE', 'OVER', 'PARTITION', 'WINDOW',
+                      
+                      // Common Table Expressions
+                      'WITH', 'RECURSIVE', 'LATERAL',
+                      
+                      // Miscellaneous read-safe clauses
+                      'VALUES', 'FETCH', 'NEXT', 'ONLY', 'TOP', 'EXPLAIN', 'ANALYZE'
                     ]
                   });
 
@@ -712,8 +963,21 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
                 >
                   <i className="bi bi-play me-1"></i>Execute
                 </button>
-                <button className="btn btn-outline-secondary">
-                  <i className="bi bi-save me-1"></i>Save
+                <button 
+                  className="btn btn-outline-secondary"
+                  onClick={handleSaveQuery}
+                  disabled={activeTabId === 'docs' || isSaving}
+                >
+                  {isSaving ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-save me-1"></i>Save
+                    </>
+                  )}
                 </button>
                 <button className="btn btn-outline-secondary">
                   <i className="bi bi-arrow-clockwise me-1"></i>Format
@@ -773,6 +1037,15 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
           </>
         )}
       </div>
+
+      {/* Save Query Modal */}
+      <SaveQueryModal
+        isOpen={isSaveModalOpen}
+        onClose={handleSaveModalClose}
+        onSave={handleSaveQuerySubmit}
+        defaultName={activeTab?.name || 'New Query'}
+        isSaving={isSaving}
+      />
     </div>
   );
 };

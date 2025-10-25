@@ -23,9 +23,10 @@ interface ModelExplorerProps {
   onSpatialColumnsLoaded?: (spatialColumns: string[]) => void;
   onTableDocumentationSelect?: (table: any) => void;
   onQuerySelect?: (query: any) => void;
+  onRefreshQueries?: (refreshFn: () => void) => void;
 }
 
-const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect, onSpatialColumnsLoaded, onTableDocumentationSelect, onQuerySelect }) => {
+const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect, onSpatialColumnsLoaded, onTableDocumentationSelect, onQuerySelect, onRefreshQueries }) => {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'databases': true,
     'production': true,
@@ -220,6 +221,14 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
     }
   }, [models, onModelsLoaded]);
 
+  // Expose refresh function to parent
+  useEffect(() => {
+    if (onRefreshQueries) {
+      // Store the refresh function reference
+      onRefreshQueries(loadSavedQueries);
+    }
+  }, [onRefreshQueries]);
+
 
   const showContextMenu = (e: React.MouseEvent, type: 'table' | 'column', item: any) => {
     e.preventDefault();
@@ -296,15 +305,17 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
               <div className="explorer-item">
                 <div 
                   className="explorer-folder" 
-                  onClick={(e) => {
+                  onClick={() => {
+                    console.log('🔥 SCHEMAS NODE CLICKED!');
                     // Always toggle folder first
                     toggleFolder('schemas');
                     
-                    // If clicking on the folder name (not the chevron), also select "all schemas"
-                    if (e.target instanceof HTMLElement && (e.target.tagName === 'SPAN' || e.target.closest('span'))) {
-                      if (onSchemaSelect) {
-                        onSchemaSelect('default'); // Use 'default' to show all schemas
-                      }
+                    // Always select "all schemas" when clicking on the Schemas node
+                    if (onSchemaSelect) {
+                      console.log('🔥 Calling onSchemaSelect with default');
+                      onSchemaSelect('default');
+                    } else {
+                      console.log('🔥 onSchemaSelect is not defined!');
                     }
                   }}
                   style={{ cursor: 'pointer' }}
@@ -322,15 +333,13 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                         <div key={schema} className="explorer-item">
                           <div 
                             className="explorer-folder" 
-                            onClick={(e) => {
+                            onClick={() => {
                               // Always toggle folder first
                               toggleFolder(`schema-${schema}`);
                               
-                              // If clicking on the schema name (not the chevron), also select the schema
-                              if (e.target instanceof HTMLElement && (e.target.tagName === 'SPAN' || e.target.closest('span'))) {
-                                if (onSchemaSelect) {
-                                  onSchemaSelect(schema);
-                                }
+                              // Always select the schema when clicking on it
+                              if (onSchemaSelect) {
+                                onSchemaSelect(schema);
                               }
                             }}
                             style={{ cursor: 'pointer' }}
