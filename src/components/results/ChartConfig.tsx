@@ -55,6 +55,19 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
 
   // Ref to track previous config to avoid unnecessary updates
   const prevConfigRef = useRef<any>(null);
+  
+  // Helper function to create a stable config object for comparison
+  const createConfigForComparison = (config: ChartConfigData, filteredData: any[], selectedSeriesValues: string[]) => {
+    return {
+      chart_type: config.chart_type,
+      x_key: config.x_key,
+      y_key: config.y_key,
+      series_key: config.series_key,
+      series: config.series,
+      filteredData: filteredData,
+      selectedSeriesValues: selectedSeriesValues
+    };
+  };
 
   // Reset state when initialConfig changes (e.g., when switching tabs)
   useEffect(() => {
@@ -139,19 +152,26 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
   useEffect(() => {
     // Only notify if config has meaningful changes and avoid empty configs
     if (config.x_key && config.y_key) {
-      const newConfig = {
-        ...config,
-        filteredData: filteredData,
-        selectedSeriesValues: selectedSeriesValues
-      };
+      const newConfig = createConfigForComparison(config, filteredData, selectedSeriesValues);
       
       // Only call onConfigChange if the config actually changed
-      if (JSON.stringify(newConfig) !== JSON.stringify(prevConfigRef.current)) {
+      // Use a more efficient comparison by checking key properties
+      const hasChanged = !prevConfigRef.current || 
+        prevConfigRef.current.chart_type !== newConfig.chart_type ||
+        prevConfigRef.current.x_key !== newConfig.x_key ||
+        prevConfigRef.current.y_key !== newConfig.y_key ||
+        prevConfigRef.current.series_key !== newConfig.series_key ||
+        prevConfigRef.current.selectedSeriesValues?.length !== newConfig.selectedSeriesValues?.length ||
+        (prevConfigRef.current.selectedSeriesValues && newConfig.selectedSeriesValues &&
+         !prevConfigRef.current.selectedSeriesValues.every((val, index) => val === newConfig.selectedSeriesValues[index])) ||
+        prevConfigRef.current.filteredData?.length !== newConfig.filteredData?.length;
+      
+      if (hasChanged) {
         prevConfigRef.current = newConfig;
         onConfigChange(newConfig);
       }
     }
-  }, [config.x_key, config.y_key, config.series_key, config.chart_type, config.series, onConfigChange]);
+  }, [config.x_key, config.y_key, config.series_key, config.chart_type, config.series, filteredData, selectedSeriesValues, onConfigChange]);
 
   const handleChartTypeChange = (chartType: string) => {
     setConfig(prev => ({
@@ -195,19 +215,8 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
         ? prev.filter(val => val !== seriesValue)
         : [...prev, seriesValue];
       
-      // Update config immediately with new values
-      if (config.x_key && config.y_key) {
-        const newFilteredData = config.series_key && newValues.length > 0
-          ? queryResults.filter(row => newValues.includes(row[config.series_key]))
-          : queryResults;
-          
-        onConfigChange({
-          ...config,
-          filteredData: newFilteredData,
-          selectedSeriesValues: newValues
-        });
-      }
-      
+      // Don't call onConfigChange here - let the useEffect handle it
+      // This prevents double updates and flickering
       return newValues;
     });
   };
