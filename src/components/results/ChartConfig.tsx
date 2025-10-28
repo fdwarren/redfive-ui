@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import simpleChartSchema from '../../assets/simple-chart.schema.json';
+import ChartTemplateManager from './ChartTemplateManager';
 
 interface ChartConfigProps {
   queryResults: any[];
@@ -7,17 +8,19 @@ interface ChartConfigProps {
   onConfigChange: (config: any) => void;
   initialConfig?: any;
   className?: string;
+  tabId?: string;
 }
 
 interface ChartConfigData {
-  chart_type: string;
-  x_key: string;
-  y_key: string;
-  series_key: string;
+  chart_type: 'bar' | 'line' | 'area' | 'scatter' | 'pie';
+  x_key: string | null;
+  y_key: string | null;
+  series_key: string | null;
   series: Array<{
     type: string;
-    xKey: string;
-    yKey: string;
+    xKey: string | null;
+    yKey: string | null;
+    seriesValue?: any;
   }>;
   filteredData?: any[];
   selectedSeriesValues?: string[];
@@ -28,23 +31,24 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
   columns, 
   onConfigChange, 
   initialConfig,
-  className = '' 
+  className = '',
+  tabId
 }) => {
   const [config, setConfig] = useState<ChartConfigData>(() => {
     if (initialConfig) {
       return {
         chart_type: initialConfig.chart_type || 'bar',
-        x_key: initialConfig.x_key || '',
-        y_key: initialConfig.y_key || '',
-        series_key: initialConfig.series_key || '',
+        x_key: initialConfig.x_key || null,
+        y_key: initialConfig.y_key || null,
+        series_key: initialConfig.series_key || null,
         series: initialConfig.series || []
       };
     }
     return {
       chart_type: 'bar',
-      x_key: '',
-      y_key: '',
-      series_key: '',
+      x_key: null,
+      y_key: null,
+      series_key: null,
       series: []
     };
   });
@@ -105,7 +109,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
     
     const uniqueValues = [...new Set(
       queryResults
-        .map(row => row[config.series_key])
+        .map(row => config.series_key ? row[config.series_key] : null)
         .filter(val => val !== null && val !== undefined)
     )];
     
@@ -119,7 +123,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
     }
     
     return queryResults.filter(row => 
-      selectedSeriesValues.includes(row[config.series_key])
+      config.series_key ? selectedSeriesValues.includes(row[config.series_key]) : false
     );
   }, [queryResults, config.series_key, selectedSeriesValues]);
 
@@ -127,7 +131,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
   useEffect(() => {
     if (config.x_key && config.y_key && config.series_key && queryResults && queryResults.length > 0) {
       // Get unique values from the series_key column
-      const uniqueSeriesValues = [...new Set(queryResults.map(row => row[config.series_key]).filter(val => val !== null && val !== undefined))];
+      const uniqueSeriesValues = [...new Set(queryResults.map(row => config.series_key ? row[config.series_key] : null).filter(val => val !== null && val !== undefined))];
       
       const newSeries = uniqueSeriesValues.map(seriesValue => ({
         type: config.chart_type,
@@ -163,7 +167,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
         prevConfigRef.current.series_key !== newConfig.series_key ||
         prevConfigRef.current.selectedSeriesValues?.length !== newConfig.selectedSeriesValues?.length ||
         (prevConfigRef.current.selectedSeriesValues && newConfig.selectedSeriesValues &&
-         !prevConfigRef.current.selectedSeriesValues.every((val, index) => val === newConfig.selectedSeriesValues[index])) ||
+         !prevConfigRef.current.selectedSeriesValues.every((val: any, index: number) => val === newConfig.selectedSeriesValues![index])) ||
         prevConfigRef.current.filteredData?.length !== newConfig.filteredData?.length;
       
       if (hasChanged) {
@@ -176,7 +180,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
   const handleChartTypeChange = (chartType: string) => {
     setConfig(prev => ({
       ...prev,
-      chart_type: chartType,
+      chart_type: chartType as 'bar' | 'line' | 'area' | 'scatter' | 'pie',
       series: prev.series.map(series => ({
         ...series,
         type: chartType
@@ -187,14 +191,14 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
   const handleXKeyChange = (xKey: string) => {
     setConfig(prev => ({
       ...prev,
-      x_key: xKey
+      x_key: xKey || null
     }));
   };
 
   const handleYKeyChange = (yKey: string) => {
     setConfig(prev => ({
       ...prev,
-      y_key: yKey
+      y_key: yKey || null
     }));
   };
 
@@ -202,7 +206,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
     // Batch both state updates together
     setConfig(prev => ({
       ...prev,
-      series_key: seriesKey
+      series_key: seriesKey || null
     }));
     
     // Reset selected series values when series key changes
@@ -230,23 +234,61 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
   };
 
 
-  // Get numeric columns for y-axis selection
+  // Get numeric columns for y-axis selection (values/measurements)
   const numericColumns = useMemo(() => {
     if (!queryResults || queryResults.length === 0) return columns;
     
     return columns.filter(column => {
-      const sampleValue = queryResults[0]?.[column];
-      return typeof sampleValue === 'number' || !isNaN(Number(sampleValue));
+      // Sample multiple rows to get a better sense of the data type
+      const sampleSize = Math.min(5, queryResults.length);
+      const sampleValues = queryResults.slice(0, sampleSize).map(row => row[column]);
+      
+      // Remove null/undefined values for type checking
+      const validValues = sampleValues.filter(val => val !== null && val !== undefined);
+      
+      if (validValues.length === 0) return false; // Exclude if all samples are null
+      
+      // Check if most values are numeric and can be used for mathematical operations
+      const numericCount = validValues.filter(val => {
+        return (typeof val === 'number' && !isNaN(val)) || 
+               (typeof val === 'string' && !isNaN(Number(val)) && val.trim() !== '');
+      }).length;
+      
+      // At least 80% of sample values should be numeric for Y-axis
+      return (numericCount / validValues.length) >= 0.8;
     });
   }, [columns, queryResults]);
 
-  // Get string columns for x-axis selection
-  const stringColumns = useMemo(() => {
+  // Get columns suitable for x-axis (categorical) - be more inclusive
+  const categoricalColumns = useMemo(() => {
     if (!queryResults || queryResults.length === 0) return columns;
     
     return columns.filter(column => {
-      const sampleValue = queryResults[0]?.[column];
-      return typeof sampleValue === 'string' || typeof sampleValue === 'object';
+      // Sample multiple rows to get a better sense of the data type
+      const sampleSize = Math.min(5, queryResults.length);
+      const sampleValues = queryResults.slice(0, sampleSize).map(row => row[column]);
+      
+      // Remove null/undefined values for type checking
+      const validValues = sampleValues.filter(val => val !== null && val !== undefined);
+      
+      if (validValues.length === 0) return true; // Include if all samples are null (let user decide)
+      
+      // Check the types of valid values
+      const types = validValues.map(val => typeof val);
+      const uniqueTypes = [...new Set(types)];
+      
+      // Include columns that are:
+      // - Strings (text, categories)
+      // - Numbers (can be used categorically - years, IDs, etc.)
+      // - Booleans (categorical true/false)
+      // - Dates (objects that might be dates)
+      // - Mixed types (let user decide)
+      return uniqueTypes.some(type => 
+        type === 'string' || 
+        type === 'number' || 
+        type === 'boolean' || 
+        type === 'object'
+      );
     });
   }, [columns, queryResults]);
 
@@ -294,17 +336,39 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
           </label>
           <select 
             className="form-select"
-            value={config.x_key}
+            value={config.x_key || ''}
             onChange={(e) => handleXKeyChange(e.target.value)}
             style={{ borderColor: '#aa0000', fontSize: '0.8rem' }}
           >
             <option value="">Select X-axis column</option>
-            {stringColumns.map(column => (
-              <option key={column} value={column}>
-                {column}
-              </option>
-            ))}
+            {categoricalColumns.map(column => {
+              // Determine column type hint for display
+              const sampleValue = queryResults?.[0]?.[column];
+              let typeHint = '';
+              if (sampleValue !== null && sampleValue !== undefined) {
+                const type = typeof sampleValue;
+                if (type === 'string') typeHint = ' (text)';
+                else if (type === 'number') typeHint = ' (numeric)';
+                else if (type === 'boolean') typeHint = ' (true/false)';
+                else if (sampleValue instanceof Date) typeHint = ' (date)';
+                else if (type === 'object') typeHint = ' (object)';
+              }
+              
+              return (
+                <option key={column} value={column}>
+                  {column}{typeHint}
+                </option>
+              );
+            })}
           </select>
+          {categoricalColumns.length === 0 && (
+            <div className="text-muted small mt-1" style={{ fontSize: '0.75rem' }}>
+              No suitable columns found for X-axis
+            </div>
+          )}
+          <div className="text-muted small mt-1" style={{ fontSize: '0.75rem' }}>
+            Categories, dates, or grouping columns
+          </div>
         </div>
 
         {/* Y-Axis Selection */}
@@ -314,22 +378,38 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
           </label>
           <select 
             className="form-select"
-            value={config.y_key}
+            value={config.y_key || ''}
             onChange={(e) => handleYKeyChange(e.target.value)}
             style={{ borderColor: '#aa0000', fontSize: '0.8rem' }}
           >
             <option value="">Select Y-axis column</option>
-            {numericColumns.map(column => (
-              <option key={column} value={column}>
-                {column}
-              </option>
-            ))}
+            {numericColumns.map(column => {
+              // Determine column type hint for display
+              const sampleValue = queryResults?.[0]?.[column];
+              let typeHint = '';
+              if (sampleValue !== null && sampleValue !== undefined) {
+                const type = typeof sampleValue;
+                if (type === 'number') typeHint = ' (number)';
+                else if (typeof sampleValue === 'string' && !isNaN(Number(sampleValue))) {
+                  typeHint = ' (numeric text)';
+                }
+              }
+              
+              return (
+                <option key={column} value={column}>
+                  {column}{typeHint}
+                </option>
+              );
+            })}
           </select>
           {numericColumns.length === 0 && (
             <div className="text-muted small mt-1" style={{ fontSize: '0.75rem' }}>
               No numeric columns found for Y-axis
             </div>
           )}
+          <div className="text-muted small mt-1" style={{ fontSize: '0.75rem' }}>
+            Numeric values for measurements or counts
+          </div>
         </div>
 
         {/* Series Differentiation Selection */}
@@ -339,12 +419,12 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
           </label>
           <select 
             className="form-select"
-            value={config.series_key}
+            value={config.series_key || ''}
             onChange={(e) => handleSeriesKeyChange(e.target.value)}
             style={{ borderColor: '#aa0000', fontSize: '0.8rem' }}
           >
             <option value="">Select series column</option>
-            {stringColumns.map(column => (
+            {categoricalColumns.map(column => (
               <option key={column} value={column}>
                 {column}
               </option>
@@ -403,6 +483,20 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
             </div>
           </div>
         )}
+
+        {/* Chart Templates */}
+        <div className="col-12">
+          <div className="border-top pt-3 mt-3">
+            <ChartTemplateManager
+              currentConfig={config}
+              tabId={tabId}
+              onTemplateApplied={() => {
+                // Force refresh of configuration when template is applied
+                // The global state change will trigger updates automatically
+              }}
+            />
+          </div>
+        </div>
 
       </div>
     </div>

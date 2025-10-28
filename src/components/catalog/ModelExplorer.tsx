@@ -1,23 +1,15 @@
 import React, { useState, useEffect, memo, useMemo } from 'react';
 import DataService from '../../services/DataService';
 import { GlobalContext, type SavedQuery } from '../../services/GlobalContext';
-
-// Define the SavedQueryResponse interface locally to avoid import issues
+import { useGlobalState } from '../../hooks/useGlobalState';
+import ConfirmationModal from '../common/ConfirmationModal';
 
 interface ModelExplorerProps {
   className?: string;
-  onTableSelect?: (table: any) => void;
-  onColumnSelect?: (column: string) => void;
-  onSchemaSelect?: (schema: string) => void;
-  onModelsLoaded?: (models: any[]) => void;
-  onGenerateSelect?: (table: any) => void;
-  onSpatialColumnsLoaded?: (spatialColumns: string[]) => void;
-  onTableDocumentationSelect?: (table: any) => void;
-  onQuerySelect?: (query: any) => void;
-  onRefreshQueries?: (refreshFn: () => void) => void;
 }
 
-const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSelect, onColumnSelect, onSchemaSelect, onModelsLoaded, onGenerateSelect, onSpatialColumnsLoaded, onTableDocumentationSelect, onQuerySelect, onRefreshQueries }) => {
+const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '' }) => {
+  const { updateSelectionState, showError, showSuccess } = useGlobalState();
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'databases': true,
     'production': true,
@@ -32,9 +24,15 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
     show: boolean;
     x: number;
     y: number;
-    type: 'table' | 'column';
+    type: 'table' | 'column' | 'query';
     item: any;
   }>({ show: false, x: 0, y: 0, type: 'table', item: null });
+  
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    query: SavedQuery | null;
+    isDeleting: boolean;
+  }>({ isOpen: false, query: null, isDeleting: false });
   
   // Set up GlobalContext listeners
   useEffect(() => {
@@ -73,14 +71,6 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
     try {
         const modelsArray = await DataService.instance.listModels();
         GlobalContext.instance.setModels(modelsArray);
-
-        if (onModelsLoaded) {
-          onModelsLoaded(modelsArray);
-        }
-        
-        if (onSpatialColumnsLoaded) {
-          onSpatialColumnsLoaded(GlobalContext.instance.getSpatialColumns());
-        }
         
         const newExpandedFolders: Record<string, boolean> = {
           'databases': true,
@@ -96,6 +86,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
         setExpandedFolders(newExpandedFolders);
     } catch (error) {
       console.error('Error loading models', error);
+      showError('Failed to load models');
       setModels([]);
     } finally {
       setIsLoadingModels(false);
@@ -109,6 +100,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
       GlobalContext.instance.setSavedQueries(queries);
     } catch (error) {
       console.error('Error loading saved queries', error);
+      showError('Failed to load saved queries');
       GlobalContext.instance.setSavedQueries([]);
     } finally {
       setIsLoadingQueries(false);
@@ -121,23 +113,8 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
     loadSavedQueries();
   }, []);
 
-  // Notify parent when models change
-  useEffect(() => {
-    if (models.length > 0 && onModelsLoaded) {
-      onModelsLoaded(models);
-    }
-  }, [models, onModelsLoaded]);
 
-  // Expose refresh function to parent
-  useEffect(() => {
-    if (onRefreshQueries) {
-      // Store the refresh function reference
-      onRefreshQueries(loadSavedQueries);
-    }
-  }, [onRefreshQueries]);
-
-
-  const showContextMenu = (e: React.MouseEvent, type: 'table' | 'column', item: any) => {
+  const showContextMenu = (e: React.MouseEvent, type: 'table' | 'column' | 'query', item: any) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({
@@ -217,9 +194,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                     toggleFolder('schemas');
                     
                     // Always select "all schemas" when clicking on the Schemas node
-                    if (onSchemaSelect) {
-                      onSchemaSelect('default');
-                    }
+                    updateSelectionState({ selectedSchema: 'default', selectedTable: null });
                   }}
                   style={{ cursor: 'pointer' }}
                 >
@@ -241,9 +216,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                               toggleFolder(`schema-${schema}`);
                               
                               // Always select the schema when clicking on it
-                              if (onSchemaSelect) {
-                                onSchemaSelect(schema);
-                              }
+                              updateSelectionState({ selectedSchema: schema, selectedTable: null });
                             }}
                             style={{ cursor: 'pointer' }}
                           >
@@ -267,11 +240,8 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                                       className="explorer-folder" 
                                       onClick={() => {
                                         toggleFolder(`table-${schema}-${tableName}`);
-                                        if (onTableSelect && tableModel) {
-                                          onTableSelect(tableModel);
-                                        }
-                                        if (onTableDocumentationSelect && tableModel) {
-                                          onTableDocumentationSelect(tableModel);
+                                        if (tableModel) {
+                                          updateSelectionState({ selectedTable: tableModel });
                                         }
                                       }}
                                       onContextMenu={(e) => {
@@ -292,9 +262,8 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                                           key={column.name} 
                                           className="explorer-file"
                                           onClick={() => {
-                                            if (onColumnSelect) {
-                                              onColumnSelect(column.name);
-                                            }
+                                            // Column selection could be handled here if needed
+                                            console.log('Column selected:', column.name);
                                           }}
                                           onContextMenu={(e) => {
                                             e.preventDefault();
@@ -348,9 +317,12 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                           key={query.guid} 
                           className="explorer-file"
                           onClick={() => {
-                            if (onQuerySelect) {
-                              onQuerySelect(query);
-                            }
+                            updateSelectionState({ selectedQuery: query });
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            showContextMenu(e, 'query', query);
                           }}
                           style={{ cursor: 'pointer' }}
                         >
@@ -399,11 +371,12 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {contextMenu.type === 'table' && onGenerateSelect && (
+          {contextMenu.type === 'table' && (
             <div 
               className="context-menu-item"
               onClick={() => {
-                onGenerateSelect(contextMenu.item);
+                // Generate select for table - this could trigger SQL generation
+                console.log('Generate select for table:', contextMenu.item);
                 setContextMenu({ show: false, x: 0, y: 0, type: 'table', item: null });
               }}
               style={{
@@ -427,8 +400,65 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
               <span>Generate Select</span>
             </div>
           )}
+          {contextMenu.type === 'query' && (
+            <div 
+              className="context-menu-item"
+              onClick={() => {
+                const query = contextMenu.item as SavedQuery;
+                setDeleteModal({ isOpen: true, query, isDeleting: false });
+                setContextMenu({ show: false, x: 0, y: 0, type: 'table', item: null });
+              }}
+              style={{
+                padding: '10px 16px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f8f9fa';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <i className="bi bi-trash text-danger"></i>
+              <span>Delete Query</span>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, query: null, isDeleting: false })}
+        onConfirm={async () => {
+          if (!deleteModal.query) return;
+          
+          setDeleteModal(prev => ({ ...prev, isDeleting: true }));
+          
+          try {
+            await DataService.instance.deleteQuery(deleteModal.query.guid);
+            showSuccess(`Query "${deleteModal.query.name}" deleted successfully`);
+            // Reload the saved queries to reflect the change
+            loadSavedQueries();
+            setDeleteModal({ isOpen: false, query: null, isDeleting: false });
+          } catch (error) {
+            console.error('Error deleting query:', error);
+            showError('Failed to delete query');
+            setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+          }
+        }}
+        title="Delete Query"
+        message={deleteModal.query ? `Are you sure you want to delete the query "${deleteModal.query.name}"? This action cannot be undone.` : ''}
+        confirmText="Delete"
+        cancelText="Cancel"
+        isProcessing={deleteModal.isDeleting}
+        variant="danger"
+      />
     </div>
   );
 };

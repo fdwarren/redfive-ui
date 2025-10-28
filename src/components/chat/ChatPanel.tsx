@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import DataService from '../../services/DataService';
+import { useGlobalState } from '../../hooks/useGlobalState';
 import type { ChatMessage } from '../../types';
 
 interface ChatPanelProps {
   className?: string;
-  onSqlGenerated?: (sql: string) => void;
   isCollapsed?: boolean;
   onToggle?: () => void;
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, isCollapsed = false, onToggle }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', isCollapsed = false, onToggle }) => {
+  const { updateSqlGenerationState, showError } = useGlobalState();
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
   ]);
   const [newMessage, setNewMessage] = useState('');
@@ -29,20 +30,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
       setChatMessages(prev => [...prev, userMessage]);
       setNewMessage('');
       setIsLoading(true);
+      updateSqlGenerationState({ isGenerating: true, lastPrompt: newMessage });
 
+      try {
         // Send prompt to data service
         const response = await DataService.instance.sendPrompt(newMessage);
         
-         
         if (response && response.sql) {
-          // Write SQL to query editor
-          if (onSqlGenerated) {
-            onSqlGenerated(response.sql);
-          }
+          // Update global state with generated SQL
+          updateSqlGenerationState({ 
+            generatedSql: response.sql, 
+            isGenerating: false 
+          });
           
           const aiMessage = { 
             id: Date.now() + 1, 
-            text: onSqlGenerated ? "Your SQL is in the query editor." : `Generated SQL:\n\`\`\`sql\n${response.sql}\n\`\`\``, 
+            text: "Your SQL is in the query editor.", 
             sender: 'ai' as const 
           };
           setChatMessages(prev => [...prev, aiMessage]);
@@ -55,9 +58,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
             sender: 'ai' as const 
           };
           setChatMessages(prev => [...prev, aiMessage]);
+          updateSqlGenerationState({ isGenerating: false });
         }
+      } catch (error) {
+        showError('Failed to generate SQL. Please try again.');
+        updateSqlGenerationState({ isGenerating: false });
+      }
      
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 

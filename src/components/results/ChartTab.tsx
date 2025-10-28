@@ -1,8 +1,7 @@
 import React, { memo, useMemo, useState, useRef, useEffect } from 'react';
 import { AgCharts } from 'ag-charts-react';
 import ChartConfig from './ChartConfig';
-
-// Chart state is now managed by parent component to persist across tab switches
+import { useChartState } from '../../hooks/useGlobalState';
 
 interface ChartTabProps {
   metadata?: any;
@@ -21,87 +20,31 @@ const ChartTab: React.FC<ChartTabProps> = ({
   onChartConfigChange,
   tabId
 }) => {
+  const { chartState, getColorPalette } = useChartState();
   const [showConfig, setShowConfig] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
-  const [chartHeight, setChartHeight] = useState(400);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const heightUpdateTimeoutRef = useRef<number | null>(null);
+  const [containerHeight, setContainerHeight] = useState(500);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Debounced height update function
-  const debouncedUpdateHeight = (newHeight: number) => {
-    if (heightUpdateTimeoutRef.current) {
-      clearTimeout(heightUpdateTimeoutRef.current);
-    }
-    
-    heightUpdateTimeoutRef.current = setTimeout(() => {
-      setChartHeight(newHeight);
-    }, 50); // Small delay to prevent flickering
-  };
-
-  // Resize observer to track container height changes
-  useEffect(() => {
-    const updateChartHeight = () => {
-      if (chartContainerRef.current) {
-        const containerHeight = chartContainerRef.current.clientHeight;
-        if (containerHeight > 0 && containerHeight !== chartHeight) {
-          debouncedUpdateHeight(containerHeight);
-        }
-      }
-    };
-
-    // Delay initial height calculation to ensure container is properly sized
-    const timeoutId = setTimeout(() => {
-      updateChartHeight();
-    }, 100);
-
-    // Set up resize observer
-    const resizeObserver = new ResizeObserver(() => {
-      updateChartHeight();
-    });
-
-    // Also listen for window resize events
-    const handleResize = () => {
-      updateChartHeight();
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    // Set up observer after a short delay to ensure container is ready
-    const observerTimeoutId = setTimeout(() => {
-      if (chartContainerRef.current) {
-        resizeObserver.observe(chartContainerRef.current);
-      }
-    }, 200);
-
-    return () => {
-      clearTimeout(timeoutId);
-      clearTimeout(observerTimeoutId);
-      if (heightUpdateTimeoutRef.current) {
-        clearTimeout(heightUpdateTimeoutRef.current);
-      }
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [chartHeight]);
-
-  // Effect to handle initial height setup when data changes
   useEffect(() => {
     const updateHeight = () => {
-      if (chartContainerRef.current) {
-        const containerHeight = chartContainerRef.current.clientHeight;
-        if (containerHeight > 0) {
-          debouncedUpdateHeight(containerHeight);
+      if (containerRef.current) {
+        const height = containerRef.current.clientHeight;
+        if (height > 0) {
+          setContainerHeight(height);
         }
       }
     };
 
-    // Only update height once when data changes, not multiple times
-    const timeoutId = setTimeout(updateHeight, 200);
+    updateHeight();
+    
+    const resizeObserver = new ResizeObserver(updateHeight);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [queryResults?.length, chartConfig?.chart_type]); // Only re-run when data structure changes
+    return () => resizeObserver.disconnect();
+  }, []);
 
   // Create chart configurations based on user configuration
   const chartOptions = useMemo(() => {
@@ -112,70 +55,82 @@ const ChartTab: React.FC<ChartTabProps> = ({
     // Use filtered data if available, otherwise fall back to all query results
     const dataToUse = filteredData && filteredData.length > 0 ? filteredData : queryResults;
 
-    // Define a consistent color palette
-    const colorPalette = [
-      '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-      '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-      '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
-      '#c49c94', '#f7b6d3', '#c7c7c7', '#dbdb8d', '#9edae5'
-    ];
+    // Use global color palette
+    const colorPalette = getColorPalette();
 
     // Transform data based on configuration
     let chartData: any[] = [];
     let seriesConfig: any[] = [];
     
-    if (series_key && y_key) {
-      // Group data by series_key values
-      const groupedData: { [key: string]: any[] } = {};
+    if (series_key && y_key && x_key) {
+      // For multiple series in AG Charts, we need to restructure the data completely
+      // Create a pivot-like structure where each series becomes a separate y-column
       
-      (dataToUse || []).forEach((row: { [x: string]: any; }) => {
-        const seriesValue = row[series_key];
-        if (seriesValue !== null && seriesValue !== undefined) {
-          // Only include series values that are selected (if filtering is applied)
-          if (!selectedSeriesValues || selectedSeriesValues.length === 0 || selectedSeriesValues.includes(seriesValue)) {
-            if (!groupedData[seriesValue]) {
-              groupedData[seriesValue] = [];
-            }
-            groupedData[seriesValue].push(row);
+      // First, get all unique x-values and series values
+      const xValues = [...new Set((dataToUse || []).map(row => row[x_key]))].sort();
+      const seriesValues = [...new Set(
+        (dataToUse || [])
+          .map(row => row[series_key])
+          .filter(val => val !== null && val !== undefined)
+          .filter(val => !selectedSeriesValues || selectedSeriesValues.length === 0 || selectedSeriesValues.includes(val))
+      )].sort();
+      
+      // Create a map for quick lookup
+      const dataMap: { [key: string]: { [key: string]: any } } = {};
+      (dataToUse || []).forEach(row => {
+        const xVal = row[x_key];
+        const seriesVal = row[series_key];
+        const yVal = row[y_key];
+        
+        if (xVal !== null && xVal !== undefined && 
+            seriesVal !== null && seriesVal !== undefined &&
+            (!selectedSeriesValues || selectedSeriesValues.length === 0 || selectedSeriesValues.includes(seriesVal))) {
+          
+          const key = `${xVal}`;
+          if (!dataMap[key]) {
+            dataMap[key] = { [x_key]: xVal };
           }
+          dataMap[key][`series_${seriesVal}`] = yVal;
         }
       });
       
-      // Create separate series for each series value with filtered data
-      const seriesValues = Object.keys(groupedData);
+      // Convert to array format
+      chartData = xValues.map(xVal => {
+        const key = `${xVal}`;
+        return dataMap[key] || { [x_key]: xVal };
+      });
+      
+      // Create separate series for each series value
       seriesConfig = seriesValues.map((seriesValue, index) => ({
         type: chart_type,
         xKey: x_key,
-        yKey: y_key,
+        yKey: `series_${seriesValue}`,
         yName: seriesValue,
-        data: groupedData[seriesValue],
         connectMissingData: false,
         style: {
           fill: colorPalette[index % colorPalette.length],
           stroke: colorPalette[index % colorPalette.length]
         },
         marker: {
-          enabled: false
+          enabled: chart_type === 'scatter' || chart_type === 'line',
+          size: chart_type === 'scatter' ? 6 : 4
         }
       }));
-      
-      // For the main chart data, we'll use all the data (AG Charts will handle the filtering per series)
-      chartData = dataToUse || [];
     } else {
-      // Fallback to simple mapping if series_key is not available
+      // Single series - use chart-level data
       chartData = dataToUse || [];
       seriesConfig = [{
         type: chart_type,
         xKey: x_key,
         yKey: y_key,
-        data: chartData,
         connectMissingData: false,
         style: {
           fill: colorPalette[0],
           stroke: colorPalette[0]
         },
         marker: {
-          enabled: false
+          enabled: chart_type === 'scatter' || chart_type === 'line',
+          size: chart_type === 'scatter' ? 6 : 4
         }
       }];
     }
@@ -198,45 +153,63 @@ const ChartTab: React.FC<ChartTabProps> = ({
           type: 'category',
           position: 'bottom',
           title: {
-            text: x_key || 'X-Axis'
+            text: x_key || 'X-Axis',
+            fontSize: 12
+          },
+          label: {
+            rotation: seriesConfig.length > 1 ? 45 : 0, // Rotate labels if multiple series
+            fontSize: 11
           }
         },
         {
           type: 'number',
           position: 'left',
           title: {
-            text: y_key || 'Y-Axis'
+            text: y_key || 'Y-Axis',
+            fontSize: 12
+          },
+          label: {
+            fontSize: 11
           }
         }
       ],
       legend: {
-        enabled: seriesConfig.length > 1,
+        enabled: chartState.showLegend && seriesConfig.length > 1,
+        position: 'bottom',
         item: {
           marker: {
-            shape: 'square',
+            shape: chart_type === 'line' ? 'line' : 'square',
             size: 12
+          },
+          label: {
+            fontSize: 11
           }
-        }
+        },
+        spacing: 20
+      },
+      padding: {
+        top: 20,
+        right: 20,
+        bottom: seriesConfig.length > 1 ? 60 : 40, // More space for legend
+        left: 50
       },
       width: '100%',
-      height: chartHeight
+      height: containerHeight
     };
 
 
     return chartOptions;
-  }, [chartConfig, queryResults, chartHeight]);
+  }, [chartConfig, queryResults, chartState.showLegend, getColorPalette, containerHeight]);
 
   return (
-    <div className="flex-grow-1 d-flex position-relative" style={{ height: '100%', overflow: 'hidden' }}>
+    <div ref={containerRef} className="flex-grow-1 d-flex position-relative" style={{ height: '100%', overflow: 'hidden' }}>
       {queryResults && queryResults.length > 0 ? (
         <>
           {/* Chart Area */}
           <div className="flex-grow-1 d-flex flex-column" style={{ overflow: 'hidden', minHeight: 0 }}>
             {chartOptions ? (
-              <div ref={chartContainerRef} className="flex-grow-1" style={{ width: '100%', height: '100%', position: 'relative' }}>
-                <div style={{ width: '100%', height: '100%' }}>
-                  <AgCharts options={chartOptions as any} />
-                </div>
+              <div className="flex-grow-1" style={{ width: '100%', height: '100%' }}>
+                <AgCharts options={chartOptions as any} />
               </div>
             ) : (
               <div className="d-flex justify-content-center align-items-center flex-grow-1">
@@ -311,6 +284,7 @@ const ChartTab: React.FC<ChartTabProps> = ({
                 columns={columns}
                 onConfigChange={onChartConfigChange}
                 initialConfig={chartConfig}
+                tabId={tabId}
               />
             </div>
           </div>

@@ -122,7 +122,7 @@ class DataService {
     }
 
 
-    const response = await fetch(`${this.baseUrl}/get-models`, {
+    const response = await fetch(`${this.baseUrl}/list-models`, {
       method: 'GET',
       headers,
       mode: 'cors',
@@ -334,6 +334,42 @@ class DataService {
       console.log('DataService.listQueries: Response data:', data);
       
       return data.queries as SavedQuery[];
+  }
+
+  /**
+   * Delete a saved query by its GUID
+   * @param guid - The GUID of the query to delete
+   * @returns Promise that resolves when the query is deleted
+   */
+  async deleteQuery(guid: string): Promise<void> {
+      console.log('DataService.deleteQuery: Making request to:', `${this.baseUrl}/delete-query/${guid}`);
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      // Get a valid access token (refresh if necessary)
+      const accessToken = await this.getValidToken();
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
+      const response = await fetch(`${this.baseUrl}/delete-query/${guid}`, {
+        method: 'DELETE',
+        headers,
+        mode: 'cors',
+        credentials: 'include',
+        cache: 'no-cache',
+      });
+
+      console.log('DataService.deleteQuery: Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('DataService.deleteQuery: Error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
   }
 }
 

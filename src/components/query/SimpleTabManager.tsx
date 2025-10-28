@@ -7,49 +7,55 @@ import SaveQueryModal from './SaveQueryModal';
 import ResizeHandle from '../layout/ResizeHandle';
 import VerticalResizeHandle from '../layout/VerticalResizeHandle';
 import DataService from '../../services/DataService';
+import { useGlobalState } from '../../hooks/useGlobalState';
+import { GlobalContext } from '../../services/GlobalContext';
 import type { Tab, SavedQueryRequest } from '../../types';
 import sqlKeywordsData from '../../assets/sqlKeywords.json';
 
-
 interface SimpleTabManagerProps {
-  selectedTable?: any;
-  selectedSchema?: string;
-  models?: any[];
-  spatialColumns?: string[];
-  selectedQuery?: any;
-  generatedSql?: string | null;
-  onTableSelect?: (table: any) => void;
-  onSchemaSelect?: (schema: string) => void;
-  onModelsLoaded?: (models: any[]) => void;
-  onGenerateSelect?: (table: any) => void;
-  onSpatialColumnsLoaded?: (columns: string[]) => void;
-  onTableDocumentationSelect?: (table: any) => void;
-  onSqlGenerated?: (sql: string) => void;
-  onQueryLoaded?: () => void;
-  onSqlLoaded?: () => void;
   onQuerySaved?: () => void;
   className?: string;
 }
 
 const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
-  selectedTable,
-  selectedSchema,
-  models = [],
-  spatialColumns = [],
-  selectedQuery,
-  generatedSql: _generatedSql,
-  onTableSelect: _onTableSelect,
-  onSchemaSelect: _onSchemaSelect,
-  onModelsLoaded: _onModelsLoaded,
-  onGenerateSelect: _onGenerateSelect,
-  onSpatialColumnsLoaded: _onSpatialColumnsLoaded,
-  onTableDocumentationSelect: _onTableDocumentationSelect,
-  onSqlGenerated: _onSqlGenerated,
-  onQueryLoaded: _onQueryLoaded,
-  onSqlLoaded: _onSqlLoaded,
   onQuerySaved,
   className = ''
 }) => {
+  const { 
+    uiState, 
+    updateUIState, 
+    selectionState, 
+    updateSelectionState,
+    sqlGenerationState,
+    updateSqlGenerationState,
+    executionState,
+    updateExecutionState,
+    addToExecutionHistory,
+    showSuccess,
+    showError,
+    getTabChartConfig,
+    setTabChartConfig,
+    removeTabChartConfig,
+    getDefaultChartConfig
+  } = useGlobalState();
+  
+  // Get models and spatial columns from GlobalContext
+  const [models, setModels] = useState<any[]>([]);
+  const [spatialColumns, setSpatialColumns] = useState<string[]>([]);
+  
+  useEffect(() => {
+    const handleModelsChange = () => {
+      setModels(GlobalContext.instance.getModels());
+      setSpatialColumns(GlobalContext.instance.getSpatialColumns());
+    };
+    
+    handleModelsChange();
+    GlobalContext.instance.addModelsChangedListener(handleModelsChange);
+    
+    return () => {
+      GlobalContext.instance.removeModelsChangedListener(handleModelsChange);
+    };
+  }, []);
   const [tabs, setTabs] = useState<Tab[]>([
     {
       id: 'docs',
@@ -82,10 +88,6 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
   ]);
   const [activeTabId, setActiveTabId] = useState('1');
   const [tabCounter, setTabCounter] = useState(2);
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [isResultsDetailsCollapsed, setIsResultsDetailsCollapsed] = useState(true);
-  const [resultsDetailsWidth, setResultsDetailsWidth] = useState(300);
-  const [queryEditorHeight, setQueryEditorHeight] = useState(50); // Percentage
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const editorRef = useRef<any>(null);
@@ -134,12 +136,12 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
 
   // Handle selected query from ModelExplorer
   useEffect(() => {
-    if (selectedQuery) {
+    if (selectionState.selectedQuery) {
       // Create a new tab for the selected query
       const newTab: Tab = {
         id: tabCounter.toString(),
-        name: selectedQuery.name || 'Saved Query',
-        queryText: selectedQuery.sqlText || '',
+        name: selectionState.selectedQuery.name || 'Saved Query',
+        queryText: selectionState.selectedQuery.sqlText || '',
         results: {
           results: [],
           columns: [],
@@ -147,42 +149,106 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
           executionError: null,
           executionMetadata: null,
           selectedRowIndex: null,
-          chartConfig: selectedQuery.chartConfig || null
+          chartConfig: selectionState.selectedQuery.chartConfig || null
         },
-        originalQuery: selectedQuery
+        originalQuery: selectionState.selectedQuery
       };
       
       setTabs(prev => [...prev, newTab]);
       setTabCounter(prev => prev + 1);
       setActiveTabId(newTab.id);
       
-      // Notify parent that query was loaded
-      if (_onQueryLoaded) {
-        _onQueryLoaded();
-      }
+      // Clear the selected query after loading
+      updateSelectionState({ selectedQuery: null });
     }
-  }, [selectedQuery, tabCounter, _onQueryLoaded]);
+  }, [selectionState.selectedQuery, tabCounter, updateSelectionState]);
 
   // Handle showing schema documentation when schema is selected
   useEffect(() => {
-    if (selectedSchema) {
+    if (selectionState.selectedSchema) {
       setActiveTabId('docs');
     }
-  }, [selectedSchema]);
+  }, [selectionState.selectedSchema]);
 
   // Handle generated SQL from AI assistant
   useEffect(() => {
-    if (_generatedSql) {
-      // Update the active tab's query text with the generated SQL
-      setTabs(prev => prev.map(tab => 
-        tab.id === activeTabId ? { ...tab, queryText: _generatedSql } : tab
-      ));
-      // Notify parent that SQL was loaded
-      if (_onSqlLoaded) {
-        _onSqlLoaded();
+    if (sqlGenerationState.generatedSql) {
+      // Update the active tab's query text by appending the generated SQL
+      setTabs(prev => prev.map(tab => {
+        if (tab.id === activeTabId) {
+          const existingText = tab.queryText || '';
+          const newSql = sqlGenerationState.generatedSql!;
+          // Add separator and new SQL, handling empty existing text gracefully
+          const separator = existingText.trim() === '' ? '' : '\n\n-- AI Generated SQL\n';
+          const updatedQueryText = existingText + separator + newSql;
+          return { ...tab, queryText: updatedQueryText };
+        }
+        return tab;
+      }));
+      // Clear the generated SQL after loading
+      updateSqlGenerationState({ generatedSql: null });
+    }
+  }, [sqlGenerationState.generatedSql, activeTabId, updateSqlGenerationState]);
+
+  // Load chart configuration when active tab changes
+  useEffect(() => {
+    if (activeTabId && activeTabId !== 'docs') {
+      const chartConfig = getTabChartConfig(activeTabId);
+      if (chartConfig) {
+        // Update the tab with the saved chart config only if it's different
+        setTabs(prev => {
+          const currentTab = prev.find(tab => tab.id === activeTabId);
+          if (currentTab && currentTab.results.chartConfig !== chartConfig) {
+            return prev.map(tab => 
+              tab.id === activeTabId 
+                ? {
+                    ...tab,
+                    results: {
+                      ...tab.results,
+                      chartConfig: chartConfig
+                    }
+                  }
+                : tab
+            );
+          }
+          return prev; // No change needed
+        });
       }
     }
-  }, [_generatedSql, activeTabId, _onSqlLoaded]);
+  }, [activeTabId, getTabChartConfig, setTabChartConfig]);
+
+  // Handle creating default chart config for new query results
+  useEffect(() => {
+    if (activeTabId && activeTabId !== 'docs' && models.length > 0) {
+      const currentTab = tabs.find(tab => tab.id === activeTabId);
+      const existingConfig = getTabChartConfig(activeTabId);
+      
+      // Only create default config if:
+      // 1. Tab has columns from query results
+      // 2. No existing saved config
+      // 3. No current chart config in the tab
+      if (currentTab?.results.columns && 
+          currentTab.results.columns.length > 0 && 
+          !existingConfig && 
+          !currentTab.results.chartConfig) {
+        
+        const defaultConfig = getDefaultChartConfig(currentTab.results.columns);
+        setTabChartConfig(activeTabId, defaultConfig);
+        
+        setTabs(prev => prev.map(tab => 
+          tab.id === activeTabId 
+            ? {
+                ...tab,
+                results: {
+                  ...tab.results,
+                  chartConfig: defaultConfig
+                }
+              }
+            : tab
+        ));
+      }
+    }
+  }, [activeTabId, models.length]); // Removed tabs from dependencies
 
   const activeTab = tabs.find(tab => tab.id === activeTabId);
   
@@ -354,6 +420,9 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
       return;
     }
     
+    // Clean up chart configuration for this tab
+    removeTabChartConfig(tabId);
+    
     if (tabs.length <= 2) { // docs tab + one query tab
       // If this is the last query tab, create a new empty tab
       const newTab: Tab = {
@@ -386,7 +455,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
       const newActiveTabId = newTabs[newActiveIndex].id;
       setActiveTabId(newActiveTabId);
     }
-  }, [tabs, activeTabId, tabCounter]);
+  }, [tabs, activeTabId, tabCounter, removeTabChartConfig]);
 
   const switchTab = useCallback((tabId: string) => {
     setActiveTabId(tabId);
@@ -399,7 +468,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
   }, [activeTabId]);
 
   const executeQuery = useCallback(async (queryToExecute: string, targetTabId: string) => {
-    setIsExecuting(true);
+    updateExecutionState({ isExecuting: true, activeTabId: targetTabId });
     
     try {
       const response = await DataService.instance.executeSql(queryToExecute);
@@ -421,14 +490,28 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
               }
             : tab
         ));
+        
+        // Add to execution history
+        addToExecutionHistory({
+          sql: queryToExecute,
+          tabId: targetTabId,
+          success: true
+        });
+        
+        if (response.row_count > 0) {
+          showSuccess(`Query executed successfully. ${response.row_count} rows returned.`);
+        } else {
+          showSuccess('Query executed successfully.');
+        }
       } else {
+        const errorMsg = response.error || 'Failed to execute query';
         setTabs(prev => prev.map(tab => 
           tab.id === targetTabId 
             ? {
                 ...tab,
                 results: {
                   ...tab.results,
-                  executionError: response.error || 'Failed to execute query',
+                  executionError: errorMsg,
                   results: [],
                   columns: [],
                   rowCount: 0,
@@ -437,6 +520,15 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
               }
             : tab
         ));
+        
+        addToExecutionHistory({
+          sql: queryToExecute,
+          tabId: targetTabId,
+          success: false,
+          error: errorMsg
+        });
+        
+        showError(errorMsg);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -455,10 +547,19 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
             }
           : tab
       ));
+      
+      addToExecutionHistory({
+        sql: queryToExecute,
+        tabId: targetTabId,
+        success: false,
+        error: errorMessage
+      });
+      
+      showError(errorMessage);
     } finally {
-      setIsExecuting(false);
+      updateExecutionState({ isExecuting: false, activeTabId: null });
     }
-  }, []);
+  }, [updateExecutionState, addToExecutionHistory, showSuccess, showError]);
 
   const handleExecute = useCallback(async (selectedQuery?: string) => {
     let queryToExecute = selectedQuery;
@@ -498,6 +599,12 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
   }, [activeTabId]);
 
   const handleChartConfigChange = useCallback((chartConfig: any) => {
+    if (activeTabId && chartConfig) {
+      // Save to global chart state
+      setTabChartConfig(activeTabId, chartConfig);
+    }
+    
+    // Also update tab state for immediate UI feedback
     setTabs(prev => prev.map(tab => 
       tab.id === activeTabId 
         ? {
@@ -509,22 +616,22 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
           }
         : tab
     ));
-  }, [activeTabId]);
+  }, [activeTabId, setTabChartConfig]);
 
   const handleResultsDetailsResize = useCallback((deltaX: number) => {
-    setResultsDetailsWidth(prev => Math.max(150, Math.min(500, prev + deltaX)));
-  }, []);
+    const newWidth = Math.max(150, Math.min(500, uiState.resultsDetailsWidth + deltaX));
+    updateUIState({ resultsDetailsWidth: newWidth });
+  }, [uiState.resultsDetailsWidth, updateUIState]);
 
   const handleResultsDetailsToggle = useCallback(() => {
-    setIsResultsDetailsCollapsed(prev => !prev);
-  }, []);
+    updateUIState({ isResultsDetailsCollapsed: !uiState.isResultsDetailsCollapsed });
+  }, [uiState.isResultsDetailsCollapsed, updateUIState]);
 
   const handleVerticalResize = useCallback((deltaY: number) => {
-    setQueryEditorHeight(prev => {
-      const newHeight = prev + (deltaY / window.innerHeight) * 100;
-      return Math.max(20, Math.min(80, newHeight)); // Min 20%, Max 80%
-    });
-  }, []);
+    const newHeight = uiState.queryEditorHeight + (deltaY / window.innerHeight) * 100;
+    const clampedHeight = Math.max(20, Math.min(80, newHeight)); // Min 20%, Max 80%
+    updateUIState({ queryEditorHeight: clampedHeight });
+  }, [uiState.queryEditorHeight, updateUIState]);
 
   const handleSaveQuery = useCallback(async () => {
     if (activeTabId === 'docs') {
@@ -669,9 +776,9 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
           /* Models Documentation */
           <div className="flex-grow-1" style={{ overflow: 'auto', maxHeight: '100%' }}>
             <SchemaDocumentation
-              schemaName={selectedSchema || 'default'}
+              schemaName={selectionState.selectedSchema || 'default'}
               models={models}
-              selectedTable={selectedTable}
+              selectedTable={selectionState.selectedTable}
               className="h-100"
             />
           </div>
@@ -679,7 +786,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
           /* Query Editor and Results */
           <>
             {/* Query Editor */}
-            <div style={{ height: `${queryEditorHeight}%`, minHeight: 0 }}>
+            <div style={{ height: `${uiState.queryEditorHeight}%`, minHeight: 0 }}>
               <div className="bg-light border-start d-flex flex-column h-100" style={{ overflow: 'hidden' }}>
                 <div className="flex-grow-1" style={{ height: '100%', overflow: 'hidden' }}>
                   <Editor
@@ -893,14 +1000,14 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
             <VerticalResizeHandle onResize={handleVerticalResize} />
 
             {/* Results Section */}
-            <div className="d-flex" style={{ height: `${100 - queryEditorHeight}%`, minHeight: '200px' }}>
+            <div className="d-flex" style={{ height: `${100 - uiState.queryEditorHeight}%`, minHeight: '200px' }}>
               {/* Results Panel */}
               <div className="flex-grow-1" style={{ minWidth: 0, height: '100%' }}>
                 <ResultsPanel 
                   results={activeTab?.results.results || []} 
                   columns={activeTab?.results.columns || []}
                   rowCount={activeTab?.results.rowCount || 0}
-                  isExecuting={isExecuting}
+                  isExecuting={executionState.isExecuting}
                   error={activeTab?.results.executionError || null}
                   selectedRowIndex={activeTab?.results.selectedRowIndex || null}
                   onRowSelect={handleRowSelect}
@@ -914,13 +1021,13 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
               </div>
               
               {/* Results Details Resize Handle */}
-              {!isResultsDetailsCollapsed && (
+              {!uiState.isResultsDetailsCollapsed && (
                 <ResizeHandle onResize={handleResultsDetailsResize} />
               )}
               
               {/* Results Details Panel */}
               <div style={{ 
-                width: isResultsDetailsCollapsed ? '40px' : `${resultsDetailsWidth}px`, 
+                width: uiState.isResultsDetailsCollapsed ? '40px' : `${uiState.resultsDetailsWidth}px`, 
                 flexShrink: 0, 
                 transition: 'width 0.3s ease' 
               }}>
@@ -928,10 +1035,10 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
                   results={activeTab?.results.results || []} 
                   columns={activeTab?.results.columns || []}
                   rowCount={activeTab?.results.rowCount || 0}
-                  isExecuting={isExecuting}
+                  isExecuting={executionState.isExecuting}
                   error={activeTab?.results.executionError || null}
                   selectedRow={selectedRow}
-                  isCollapsed={isResultsDetailsCollapsed}
+                  isCollapsed={uiState.isResultsDetailsCollapsed}
                   onToggle={handleResultsDetailsToggle}
                 />
               </div>
