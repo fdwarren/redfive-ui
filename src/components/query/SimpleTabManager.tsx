@@ -215,7 +215,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
         });
       }
     }
-  }, [activeTabId, getTabChartConfig, setTabChartConfig]);
+  }, [activeTabId]);
 
   // Handle creating default chart config for new query results
   useEffect(() => {
@@ -616,7 +616,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
           }
         : tab
     ));
-  }, [activeTabId, setTabChartConfig]);
+  }, [activeTabId]);
 
   const handleResultsDetailsResize = useCallback((deltaX: number) => {
     const newWidth = Math.max(150, Math.min(500, uiState.resultsDetailsWidth + deltaX));

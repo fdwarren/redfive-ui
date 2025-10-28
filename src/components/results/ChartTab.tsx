@@ -25,26 +25,40 @@ const ChartTab: React.FC<ChartTabProps> = ({
   const [showMetadata, setShowMetadata] = useState(false);
   const [containerHeight, setContainerHeight] = useState(500);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const updateHeight = () => {
       if (containerRef.current) {
         const height = containerRef.current.clientHeight;
-        if (height > 0) {
-          setContainerHeight(height);
+        if (height > 0 && height !== containerHeight) {
+          if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
+          }
+          rafRef.current = requestAnimationFrame(() => {
+            setContainerHeight(height);
+            rafRef.current = null;
+          });
         }
       }
     };
 
-    updateHeight();
+    // Initial height calculation with a slight delay
+    const timeoutId = setTimeout(updateHeight, 100);
     
     const resizeObserver = new ResizeObserver(updateHeight);
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
     }
 
-    return () => resizeObserver.disconnect();
-  }, []);
+    return () => {
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, [containerHeight]);
 
   // Create chart configurations based on user configuration
   const chartOptions = useMemo(() => {
