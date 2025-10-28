@@ -1,0 +1,434 @@
+[
+  {
+    "label": "SELECT",
+    "kind": "Keyword",
+    "insertText": "SELECT",
+    "documentation": "Select data from tables"
+  },
+  {
+    "label": "FROM",
+    "kind": "Keyword",
+    "insertText": "FROM",
+    "documentation": "Specify the source table(s)"
+  },
+  {
+    "label": "WHERE",
+    "kind": "Keyword",
+    "insertText": "WHERE",
+    "documentation": "Filter rows based on conditions"
+  },
+  {
+    "label": "GROUP BY",
+    "kind": "Keyword",
+    "insertText": "GROUP BY",
+    "documentation": "Group rows by columns"
+  },
+  {
+    "label": "HAVING",
+    "kind": "Keyword",
+    "insertText": "HAVING",
+    "documentation": "Filter groups"
+  },
+  {
+    "label": "ORDER BY",
+    "kind": "Keyword",
+    "insertText": "ORDER BY",
+    "documentation": "Sort the result set"
+  },
+  {
+    "label": "LIMIT",
+    "kind": "Keyword",
+    "insertText": "LIMIT",
+    "documentation": "Limit the number of rows returned"
+  },
+  {
+    "label": "OFFSET",
+    "kind": "Keyword",
+    "insertText": "OFFSET",
+    "documentation": "Skip a number of rows"
+  },
+  {
+    "label": "DISTINCT",
+    "kind": "Keyword",
+    "insertText": "DISTINCT",
+    "documentation": "Remove duplicate rows"
+  },
+  {
+    "label": "ALL",
+    "kind": "Keyword",
+    "insertText": "ALL",
+    "documentation": "Include all rows"
+  },
+  {
+    "label": "AS",
+    "kind": "Keyword",
+    "insertText": "AS",
+    "documentation": "Create an alias"
+  },
+  {
+    "label": "JOIN",
+    "kind": "Keyword",
+    "insertText": "JOIN",
+    "documentation": "Join tables together"
+  },
+  {
+    "label": "INNER JOIN",
+    "kind": "Keyword",
+    "insertText": "INNER JOIN",
+    "documentation": "Inner join tables"
+  },
+  {
+    "label": "LEFT JOIN",
+    "kind": "Keyword",
+    "insertText": "LEFT JOIN",
+    "documentation": "Left outer join tables"
+  },
+  {
+    "label": "RIGHT JOIN",
+    "kind": "Keyword",
+    "insertText": "RIGHT JOIN",
+    "documentation": "Right outer join tables"
+  },
+  {
+    "label": "FULL JOIN",
+    "kind": "Keyword",
+    "insertText": "FULL JOIN",
+    "documentation": "Full outer join tables"
+  },
+  {
+    "label": "CROSS JOIN",
+    "kind": "Keyword",
+    "insertText": "CROSS JOIN",
+    "documentation": "Cross join tables"
+  },
+  {
+    "label": "NATURAL JOIN",
+    "kind": "Keyword",
+    "insertText": "NATURAL JOIN",
+    "documentation": "Natural join tables"
+  },
+  {
+    "label": "ON",
+    "kind": "Keyword",
+    "insertText": "ON",
+    "documentation": "Specify join condition"
+  },
+  {
+    "label": "USING",
+    "kind": "Keyword",
+    "insertText": "USING",
+    "documentation": "Specify columns for natural join"
+  },
+  {
+    "label": "UNION",
+    "kind": "Keyword",
+    "insertText": "UNION",
+    "documentation": "Combine result sets"
+  },
+  {
+    "label": "UNION ALL",
+    "kind": "Keyword",
+    "insertText": "UNION ALL",
+    "documentation": "Combine result sets including duplicates"
+  },
+  {
+    "label": "INTERSECT",
+    "kind": "Keyword",
+    "insertText": "INTERSECT",
+    "documentation": "Find common rows"
+  },
+  {
+    "label": "EXCEPT",
+    "kind": "Keyword",
+    "insertText": "EXCEPT",
+    "documentation": "Find rows in first set but not second"
+  },
+  {
+    "label": "IN",
+    "kind": "Keyword",
+    "insertText": "IN",
+    "documentation": "Check if value is in list"
+  },
+  {
+    "label": "EXISTS",
+    "kind": "Keyword",
+    "insertText": "EXISTS",
+    "documentation": "Check if subquery returns rows"
+  },
+  {
+    "label": "ANY",
+    "kind": "Keyword",
+    "insertText": "ANY",
+    "documentation": "Compare with any value in list"
+  },
+  {
+    "label": "SOME",
+    "kind": "Keyword",
+    "insertText": "SOME",
+    "documentation": "Compare with some values in list"
+  },
+  {
+    "label": "COUNT",
+    "kind": "Keyword",
+    "insertText": "COUNT",
+    "documentation": "Count number of rows"
+  },
+  {
+    "label": "SUM",
+    "kind": "Keyword",
+    "insertText": "SUM",
+    "documentation": "Sum of values"
+  },
+  {
+    "label": "AVG",
+    "kind": "Keyword",
+    "insertText": "AVG",
+    "documentation": "Average of values"
+  },
+  {
+    "label": "MIN",
+    "kind": "Keyword",
+    "insertText": "MIN",
+    "documentation": "Minimum value"
+  },
+  {
+    "label": "MAX",
+    "kind": "Keyword",
+    "insertText": "MAX",
+    "documentation": "Maximum value"
+  },
+  {
+    "label": "CASE",
+    "kind": "Keyword",
+    "insertText": "CASE",
+    "documentation": "Conditional expression"
+  },
+  {
+    "label": "WHEN",
+    "kind": "Keyword",
+    "insertText": "WHEN",
+    "documentation": "Condition in CASE statement"
+  },
+  {
+    "label": "THEN",
+    "kind": "Keyword",
+    "insertText": "THEN",
+    "documentation": "Result in CASE statement"
+  },
+  {
+    "label": "ELSE",
+    "kind": "Keyword",
+    "insertText": "ELSE",
+    "documentation": "Default result in CASE statement"
+  },
+  {
+    "label": "END",
+    "kind": "Keyword",
+    "insertText": "END",
+    "documentation": "End of CASE statement"
+  },
+  {
+    "label": "COALESCE",
+    "kind": "Keyword",
+    "insertText": "COALESCE",
+    "documentation": "Return first non-null value"
+  },
+  {
+    "label": "NULLIF",
+    "kind": "Keyword",
+    "insertText": "NULLIF",
+    "documentation": "Return null if values are equal"
+  },
+  {
+    "label": "GREATEST",
+    "kind": "Keyword",
+    "insertText": "GREATEST",
+    "documentation": "Return largest value"
+  },
+  {
+    "label": "LEAST",
+    "kind": "Keyword",
+    "insertText": "LEAST",
+    "documentation": "Return smallest value"
+  },
+  {
+    "label": "CAST",
+    "kind": "Keyword",
+    "insertText": "CAST",
+    "documentation": "Convert data type"
+  },
+  {
+    "label": "LIKE",
+    "kind": "Keyword",
+    "insertText": "LIKE",
+    "documentation": "Pattern matching"
+  },
+  {
+    "label": "ILIKE",
+    "kind": "Keyword",
+    "insertText": "ILIKE",
+    "documentation": "Case-insensitive pattern matching"
+  },
+  {
+    "label": "NOT",
+    "kind": "Keyword",
+    "insertText": "NOT",
+    "documentation": "Logical NOT operator"
+  },
+  {
+    "label": "AND",
+    "kind": "Keyword",
+    "insertText": "AND",
+    "documentation": "Logical AND operator"
+  },
+  {
+    "label": "OR",
+    "kind": "Keyword",
+    "insertText": "OR",
+    "documentation": "Logical OR operator"
+  },
+  {
+    "label": "BETWEEN",
+    "kind": "Keyword",
+    "insertText": "BETWEEN",
+    "documentation": "Check if value is between two values"
+  },
+  {
+    "label": "IS",
+    "kind": "Keyword",
+    "insertText": "IS",
+    "documentation": "Check for null or boolean values"
+  },
+  {
+    "label": "IS NULL",
+    "kind": "Keyword",
+    "insertText": "IS NULL",
+    "documentation": "Check if value is null"
+  },
+  {
+    "label": "IS NOT NULL",
+    "kind": "Keyword",
+    "insertText": "IS NOT NULL",
+    "documentation": "Check if value is not null"
+  },
+  {
+    "label": "ASC",
+    "kind": "Keyword",
+    "insertText": "ASC",
+    "documentation": "Ascending sort order"
+  },
+  {
+    "label": "DESC",
+    "kind": "Keyword",
+    "insertText": "DESC",
+    "documentation": "Descending sort order"
+  },
+  {
+    "label": "ROW_NUMBER",
+    "kind": "Keyword",
+    "insertText": "ROW_NUMBER",
+    "documentation": "Row number window function"
+  },
+  {
+    "label": "RANK",
+    "kind": "Keyword",
+    "insertText": "RANK",
+    "documentation": "Rank window function"
+  },
+  {
+    "label": "DENSE_RANK",
+    "kind": "Keyword",
+    "insertText": "DENSE_RANK",
+    "documentation": "Dense rank window function"
+  },
+  {
+    "label": "NTILE",
+    "kind": "Keyword",
+    "insertText": "NTILE",
+    "documentation": "NTILE window function"
+  },
+  {
+    "label": "OVER",
+    "kind": "Keyword",
+    "insertText": "OVER",
+    "documentation": "Window function clause"
+  },
+  {
+    "label": "PARTITION BY",
+    "kind": "Keyword",
+    "insertText": "PARTITION BY",
+    "documentation": "Partition window function"
+  },
+  {
+    "label": "WINDOW",
+    "kind": "Keyword",
+    "insertText": "WINDOW",
+    "documentation": "Define named window"
+  },
+  {
+    "label": "WITH",
+    "kind": "Keyword",
+    "insertText": "WITH",
+    "documentation": "Common table expression"
+  },
+  {
+    "label": "RECURSIVE",
+    "kind": "Keyword",
+    "insertText": "RECURSIVE",
+    "documentation": "Recursive common table expression"
+  },
+  {
+    "label": "LATERAL",
+    "kind": "Keyword",
+    "insertText": "LATERAL",
+    "documentation": "Lateral join"
+  },
+  {
+    "label": "VALUES",
+    "kind": "Keyword",
+    "insertText": "VALUES",
+    "documentation": "Define values for INSERT"
+  },
+  {
+    "label": "FETCH",
+    "kind": "Keyword",
+    "insertText": "FETCH",
+    "documentation": "Fetch rows from cursor"
+  },
+  {
+    "label": "NEXT",
+    "kind": "Keyword",
+    "insertText": "NEXT",
+    "documentation": "Next row in cursor"
+  },
+  {
+    "label": "ONLY",
+    "kind": "Keyword",
+    "insertText": "ONLY",
+    "documentation": "Only rows, not including ties"
+  },
+  {
+    "label": "TOP",
+    "kind": "Keyword",
+    "insertText": "TOP",
+    "documentation": "Top N rows"
+  },
+  {
+    "label": "EXPLAIN",
+    "kind": "Keyword",
+    "insertText": "EXPLAIN",
+    "documentation": "Explain query execution plan"
+  },
+  {
+    "label": "ANALYZE",
+    "kind": "Keyword",
+    "insertText": "ANALYZE",
+    "documentation": "Analyze query execution"
+  },
+  {
+    "label": "DISTINCT ON",
+    "kind": "Keyword",
+    "insertText": "DISTINCT ON",
+    "documentation": "Distinct on specific columns"
+  }
+]

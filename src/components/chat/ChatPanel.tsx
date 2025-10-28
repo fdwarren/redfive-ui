@@ -30,54 +30,34 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
       setNewMessage('');
       setIsLoading(true);
 
-      try {
         // Send prompt to data service
         const response = await DataService.instance.sendPrompt(newMessage);
         
-        if (response.success && response.data) {
-          
-          if (response.data.sql) {
-            // Write SQL to query editor
-            if (onSqlGenerated) {
-              onSqlGenerated(response.data.sql);
-            }
-            
-            const aiMessage = { 
-              id: Date.now() + 1, 
-              text: onSqlGenerated ? "Your SQL is in the query editor." : `Generated SQL:\n\`\`\`sql\n${response.data.sql}\n\`\`\``, 
-              sender: 'ai' as const 
-            };
-            setChatMessages(prev => [...prev, aiMessage]);
-          } else {
-            // Format the JSON response for display
-            const jsonResponse = JSON.stringify(response.data, null, 2);
-            const aiMessage = { 
-              id: Date.now() + 1, 
-              text: `**Data Service Response:**\n\`\`\`json\n${jsonResponse}\n\`\`\``, 
-              sender: 'ai' as const 
-            };
-            setChatMessages(prev => [...prev, aiMessage]);
+         
+        if (response && response.sql) {
+          // Write SQL to query editor
+          if (onSqlGenerated) {
+            onSqlGenerated(response.sql);
           }
-        } else {
-          // Handle error response
-          const errorMessage = { 
+          
+          const aiMessage = { 
             id: Date.now() + 1, 
-            text: `**Error:** ${response.error || 'Failed to get response from data service'}`, 
+            text: onSqlGenerated ? "Your SQL is in the query editor." : `Generated SQL:\n\`\`\`sql\n${response.sql}\n\`\`\``, 
             sender: 'ai' as const 
           };
-          setChatMessages(prev => [...prev, errorMessage]);
+          setChatMessages(prev => [...prev, aiMessage]);
+        } else {
+          // Format the JSON response for display
+          const jsonResponse = JSON.stringify(response, null, 2);
+          const aiMessage = { 
+            id: Date.now() + 1, 
+            text: `**Data Service Response:**\n\`\`\`json\n${jsonResponse}\n\`\`\``, 
+            sender: 'ai' as const 
+          };
+          setChatMessages(prev => [...prev, aiMessage]);
         }
-      } catch (error) {
-        // Handle network or other errors
-        const errorMessage = { 
-          id: Date.now() + 1, 
-          text: `**Error:** ${error instanceof Error ? error.message : 'Unknown error occurred'}`, 
-          sender: 'ai' as const 
-        };
-        setChatMessages(prev => [...prev, errorMessage]);
-      } finally {
+     
         setIsLoading(false);
-      }
     }
   };
 

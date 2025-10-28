@@ -2,11 +2,16 @@ import { getApiBaseUrl } from '../utils/apiConfig';
 import type { SavedQueryRequest } from '../types';
 import type { Model, SavedQuery } from './GlobalContext';
 
-interface DataServiceResponse {
-  success: boolean;
-  data?: any;
-  error?: string;
-  message?: string;
+interface ExecuteSqlResponse {
+  data: any;
+  columns: any;
+  row_count: number;
+  metadata: any;
+  error: string | null;
+}
+
+interface SqlResponse {
+  sql: string;
 }
 
 interface DataServiceRequest {
@@ -19,7 +24,6 @@ interface SqlRequest {
 
 class DataService {
   private baseUrl: string | undefined;
-  private apiKey: string | undefined;
 
   static instance: DataService = new DataService();
 
@@ -32,8 +36,7 @@ class DataService {
    * @param query - The user's natural language query
    * @returns Promise with the service response
    */
-  async sendPrompt(query: string): Promise<DataServiceResponse> {
-    try {
+  async sendPrompt(query: string): Promise<SqlResponse> {
       const requestBody: DataServiceRequest = {
         query
       };
@@ -47,11 +50,7 @@ class DataService {
       const accessToken = await this.getValidToken();
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
-      } else if (this.apiKey) {
-        // Fallback to API key if no valid token
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
-
 
       const response = await fetch(`${this.baseUrl}/generate-sql`, {
         method: 'POST',
@@ -68,30 +67,7 @@ class DataService {
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
-      
-      return {
-        success: true,
-        data: data,
-        message: 'Request processed successfully'
-      };
-
-    } catch (error) {
-      
-      // Provide more specific error messages
-      let errorMessage = 'Unknown error occurred';
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        errorMessage = `Network error: Unable to connect to the data service. Please check if the service is running at ${this.baseUrl}`;
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        message: 'Failed to process request'
-      };
-    }
+      return await response.json();
   }
 
   /**
@@ -99,8 +75,7 @@ class DataService {
    * @param sql - The SQL query to execute
    * @returns Promise with the execution results
    */
-  async executeSql(sql: string): Promise<DataServiceResponse> {
-    try {
+  async executeSql(sql: string): Promise<ExecuteSqlResponse> {
       const requestBody: SqlRequest = {
         sql
       };
@@ -114,11 +89,7 @@ class DataService {
       const accessToken = await this.getValidToken();
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
-      } else if (this.apiKey) {
-        // Fallback to API key if no valid token
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
       }
-
 
       const response = await fetch(`${this.baseUrl}/execute-sql`, {
         method: 'POST',
@@ -135,85 +106,9 @@ class DataService {
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
-      
-      return {
-        success: true,
-        data: data,
-        message: 'SQL executed successfully'
-      };
-
-    } catch (error) {
-      
-      let errorMessage = 'Unknown error occurred';
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error: Unable to connect to the data service';
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        message: 'Failed to execute SQL'
-      };
-    }
+      return await response.json();
   }
 
-  /**
-   * Get service health status
-   * @returns Promise with health status
-   */
-  async getHealth(): Promise<DataServiceResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/health`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      return {
-        success: true,
-        data: data,
-        message: 'Service is healthy'
-      };
-
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Health check failed',
-        message: 'Service is unavailable'
-      };
-    }
-  }
-
-  /**
-   * Update the base URL for the service
-   * @param newBaseUrl - New base URL
-   */
-  setBaseUrl(newBaseUrl: string): void {
-    this.baseUrl = newBaseUrl;
-  }
-
-  /**
-   * Update the API key
-   * @param newApiKey - New API key
-   */
-  setApiKey(newApiKey: string): void {
-    this.apiKey = newApiKey;
-  }
-
-  /**
-   * Get models endpoint
-   * @returns Promise with models array
-   */
   async listModels(): Promise<Model[]> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -224,9 +119,6 @@ class DataService {
     const accessToken = await this.getValidToken();
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
-    } else if (this.apiKey) {
-      // Fallback to API key if no valid token
-      headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
 
 
@@ -253,7 +145,7 @@ class DataService {
    * Refresh the access token using the refresh token
    * @returns Promise with new tokens
    */
-  async refreshToken(): Promise<DataServiceResponse> {
+  async refreshToken(): Promise<any> {
     try {
       const refreshToken = localStorage.getItem('refresh_token');
       if (!refreshToken) {
@@ -381,9 +273,6 @@ class DataService {
     const accessToken = await this.getValidToken();
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
-    } else if (this.apiKey) {
-      // Fallback to API key if no valid token
-      headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
 
     const response = await fetch(`${this.baseUrl}/save-query`, {
@@ -423,12 +312,6 @@ class DataService {
       
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
-      } else if (this.apiKey) {
-        // Fallback to API key if no valid token
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
-        console.log('DataService.listQueries: Using API key fallback');
-      } else {
-        console.warn('DataService.listQueries: No authentication token available');
       }
 
       const response = await fetch(`${this.baseUrl}/list-queries`, {
@@ -455,4 +338,4 @@ class DataService {
 }
 
 export default DataService;
-export type { DataServiceResponse, DataServiceRequest };
+export type { ExecuteSqlResponse, SqlResponse, DataServiceRequest };
