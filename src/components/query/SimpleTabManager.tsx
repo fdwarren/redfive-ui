@@ -165,7 +165,6 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
   // Handle showing schema documentation when schema is selected
   useEffect(() => {
     if (selectedSchema) {
-      console.log('🔥 SIMPLE TAB MANAGER: Schema selected, switching to docs tab:', selectedSchema);
       setActiveTabId('docs');
     }
   }, [selectedSchema]);
@@ -173,7 +172,6 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
   // Handle generated SQL from AI assistant
   useEffect(() => {
     if (_generatedSql) {
-      console.log('🔥 SIMPLE TAB MANAGER: Generated SQL received:', _generatedSql);
       // Update the active tab's query text with the generated SQL
       setTabs(prev => prev.map(tab => 
         tab.id === activeTabId ? { ...tab, queryText: _generatedSql } : tab
@@ -185,14 +183,8 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
     }
   }, [_generatedSql, activeTabId, _onSqlLoaded]);
 
-  // Initialize DataService
-  const dataService = useMemo(() => new DataService(), []);
-
   const activeTab = tabs.find(tab => tab.id === activeTabId);
   
-  // Debug logging
-  console.log('🔥 SIMPLE TAB MANAGER RENDER: activeTabId:', activeTabId, 'selectedSchema:', selectedSchema);
-
   // Update completion provider when models change
   useEffect(() => {
     if (editorRef.current && models.length > 0) {
@@ -497,7 +489,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
     setIsExecuting(true);
     
     try {
-      const response = await dataService.executeSql(queryToExecute);
+      const response = await DataService.instance.executeSql(queryToExecute);
       
       if (response.success && response.data) {
         setTabs(prev => prev.map(tab => 
@@ -553,7 +545,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
     } finally {
       setIsExecuting(false);
     }
-  }, [dataService]);
+  }, []);
 
   const handleExecute = useCallback(async (selectedQuery?: string) => {
     let queryToExecute = selectedQuery;
@@ -645,17 +637,14 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
           isPublic: activeTab.originalQuery.isPublic
         };
 
-        const response = await dataService.saveQuery(queryData);
+        const response = await DataService.instance.saveQuery(queryData);
         
-        if (response.success) {
-          // Show success message (you could add a toast notification here)
-          console.log('Query saved successfully');
-          // Notify parent component that a query was saved
+        if (response) {
           if (onQuerySaved) {
             onQuerySaved();
           }
         } else {
-          throw new Error(response.error || 'Failed to save query');
+          throw new Error('Failed to save query');
         }
       } catch (error) {
         console.error('Error saving query:', error);
@@ -667,7 +656,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
       // New query, show the save dialog
       setIsSaveModalOpen(true);
     }
-  }, [activeTabId, tabs, dataService, onQuerySaved]);
+  }, [activeTabId, tabs, onQuerySaved]);
 
   const handleSaveQuerySubmit = useCallback(async (data: { name: string; description: string; isPublic: boolean }) => {
     if (activeTabId === 'docs') {
@@ -690,16 +679,16 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
         isPublic: data.isPublic
       };
 
-      const response = await dataService.saveQuery(queryData);
+      const response = await DataService.instance.saveQuery(queryData);
       
-      if (response.success) {
+      if (response) {
         setIsSaveModalOpen(false);
         // Notify parent component that a query was saved
         if (onQuerySaved) {
           onQuerySaved();
         }
       } else {
-        throw new Error(response.error || 'Failed to save query');
+        throw new Error('Failed to save query');
       }
     } catch (error) {
       console.error('Error saving query:', error);
@@ -707,7 +696,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [activeTabId, tabs, dataService, onQuerySaved]);
+  }, [activeTabId, tabs, onQuerySaved]);
 
   const handleSaveModalClose = useCallback(() => {
     if (!isSaving) {

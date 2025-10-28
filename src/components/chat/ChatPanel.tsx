@@ -16,9 +16,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
   const [isLoading, setIsLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
-  // Initialize DataService
-  const dataService = new DataService();
-
   // Auto-scroll to bottom when new messages are added
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -35,7 +32,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', onSqlGenerated, i
 
       try {
         // Send prompt to data service
-        const response = await dataService.sendPrompt(newMessage);
+        const response = await DataService.instance.sendPrompt(newMessage);
         
         if (response.success && response.data) {
           

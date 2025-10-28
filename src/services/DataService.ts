@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from '../utils/apiConfig';
 import type { SavedQueryRequest } from '../types';
+import type { Model, SavedQuery } from './GlobalContext';
 
 interface DataServiceResponse {
   success: boolean;
@@ -17,12 +18,13 @@ interface SqlRequest {
 }
 
 class DataService {
-  private baseUrl: string;
-  private apiKey?: string;
+  private baseUrl: string | undefined;
+  private apiKey: string | undefined;
 
-  constructor(baseUrl?: string, apiKey?: string) {
-    this.baseUrl = baseUrl || getApiBaseUrl();
-    this.apiKey = apiKey;
+  static instance: DataService = new DataService();
+
+  private constructor() {
+    this.baseUrl = getApiBaseUrl();
   }
 
   /**
@@ -212,60 +214,39 @@ class DataService {
    * Get models endpoint
    * @returns Promise with models array
    */
-  async getModels(): Promise<DataServiceResponse> {
-    try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
+  async listModels(): Promise<Model[]> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
 
-      // Get a valid access token (refresh if necessary)
-      const accessToken = await this.getValidToken();
-      if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      } else if (this.apiKey) {
-        // Fallback to API key if no valid token
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
-      }
-
-
-      const response = await fetch(`${this.baseUrl}/get-models`, {
-        method: 'GET',
-        headers,
-        mode: 'cors',
-        credentials: 'include',
-        cache: 'no-cache',
-      });
-
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      
-      return {
-        success: true,
-        data: data,
-        message: 'Models retrieved successfully'
-      };
-
-    } catch (error) {
-      
-      let errorMessage = 'Unknown error occurred';
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error: Unable to connect to the data service';
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        message: 'Failed to get models'
-      };
+    // Get a valid access token (refresh if necessary)
+    const accessToken = await this.getValidToken();
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    } else if (this.apiKey) {
+      // Fallback to API key if no valid token
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
+
+
+    const response = await fetch(`${this.baseUrl}/get-models`, {
+      method: 'GET',
+      headers,
+      mode: 'cors',
+      credentials: 'include',
+      cache: 'no-cache',
+    });
+
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    return data.models;
   }
 
   /**
@@ -390,66 +371,47 @@ class DataService {
    * @param queryData - The query data to save
    * @returns Promise with the saved query response
    */
-  async saveQuery(queryData: SavedQueryRequest): Promise<DataServiceResponse> {
-    try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
+  async saveQuery(queryData: SavedQueryRequest): Promise<SavedQuery[]> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
 
-      // Get a valid access token (refresh if necessary)
-      const accessToken = await this.getValidToken();
-      if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      } else if (this.apiKey) {
-        // Fallback to API key if no valid token
-        headers['Authorization'] = `Bearer ${this.apiKey}`;
-      }
-
-      const response = await fetch(`${this.baseUrl}/save-query`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(queryData),
-        mode: 'cors',
-        credentials: 'include',
-        cache: 'no-cache',
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      
-      return {
-        success: true,
-        data: data,
-        message: 'Query saved successfully'
-      };
-
-    } catch (error) {
-      let errorMessage = 'Unknown error occurred';
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error: Unable to connect to the data service';
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        message: 'Failed to save query'
-      };
+    // Get a valid access token (refresh if necessary)
+    const accessToken = await this.getValidToken();
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    } else if (this.apiKey) {
+      // Fallback to API key if no valid token
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
+
+    const response = await fetch(`${this.baseUrl}/save-query`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(queryData),
+      mode: 'cors',
+      credentials: 'include',
+      cache: 'no-cache',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    return data as SavedQuery[];
   }
 
   /**
    * Get all saved queries for the authenticated user
    * @returns Promise with the list of saved queries
    */
-  async listQueries(): Promise<DataServiceResponse> {
-    try {
+  async listQueries(): Promise<SavedQuery[]> {
+      console.log('DataService.listQueries: Making request to:', `${this.baseUrl}/list-queries`);
+      
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -457,11 +419,16 @@ class DataService {
 
       // Get a valid access token (refresh if necessary)
       const accessToken = await this.getValidToken();
+      console.log('DataService.listQueries: Access token available:', !!accessToken);
+      
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
       } else if (this.apiKey) {
         // Fallback to API key if no valid token
         headers['Authorization'] = `Bearer ${this.apiKey}`;
+        console.log('DataService.listQueries: Using API key fallback');
+      } else {
+        console.warn('DataService.listQueries: No authentication token available');
       }
 
       const response = await fetch(`${this.baseUrl}/list-queries`, {
@@ -472,36 +439,19 @@ class DataService {
         cache: 'no-cache',
       });
 
+      console.log('DataService.listQueries: Response status:', response.status);
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('DataService.listQueries: Error response:', errorText);
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('DataService.listQueries: Response data:', data);
       
-      return {
-        success: true,
-        data: data,
-        message: 'Queries retrieved successfully'
-      };
-
-    } catch (error) {
-      let errorMessage = 'Unknown error occurred';
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error: Unable to connect to the data service';
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        message: 'Failed to list queries'
-      };
-    }
+      return data.queries as SavedQuery[];
   }
-
- 
 }
 
 export default DataService;

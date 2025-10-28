@@ -1,17 +1,8 @@
 import React, { useState, useEffect, memo, useMemo } from 'react';
 import DataService from '../../services/DataService';
+import { GlobalContext, type SavedQuery } from '../../services/GlobalContext';
 
 // Define the SavedQueryResponse interface locally to avoid import issues
-interface SavedQueryResponse {
-  guid: string;
-  name: string;
-  description: string;
-  sqlText: string;
-  chartConfig: any;
-  isPublic: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface ModelExplorerProps {
   className?: string;
@@ -35,7 +26,7 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
   });
   const [models, setModels] = useState<any[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
-  const [savedQueries, setSavedQueries] = useState<SavedQueryResponse[]>([]);
+  const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
   const [isLoadingQueries, setIsLoadingQueries] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     show: boolean;
@@ -45,8 +36,25 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
     item: any;
   }>({ show: false, x: 0, y: 0, type: 'table', item: null });
   
-  // Initialize DataService
-  const dataService = new DataService();
+  // Set up GlobalContext listeners
+  useEffect(() => {
+    const modelsListener = () => {
+      setModels(GlobalContext.instance.getModels());
+    };
+
+    const savedQueriesListener = () => {
+      const queries = GlobalContext.instance.getSavedQueries();
+      setSavedQueries(queries);
+    };
+
+    GlobalContext.instance.addModelsChangedListener(modelsListener);
+    GlobalContext.instance.addSavedQueriesChangedListener(savedQueriesListener);
+
+    return () => {
+      GlobalContext.instance.removeModelsChangedListener(modelsListener);
+      GlobalContext.instance.removeSavedQueriesChangedListener(savedQueriesListener);
+    };
+  }, []);
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => ({
@@ -55,108 +63,25 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
     }));
   };
 
-  const organizeModelsBySchema = (models: any) => {
-    const schemaMap: Record<string, Record<string, any[]>> = {};
-    
-    // Handle case where models might be wrapped in an object or not be an array
-    let modelsArray: any[] = [];
-    if (Array.isArray(models)) {
-      modelsArray = models;
-    } else if (models && Array.isArray(models.data)) {
-      modelsArray = models.data;
-    } else if (models && models.models && Array.isArray(models.models)) {
-      modelsArray = models.models;
-    } else {
-      return schemaMap;
-    }
-    
-    modelsArray.forEach(model => {
-      // Try different possible schema field names
-      const schema = model.schema || model.schema_name || model.database_schema || 'default';
-      const tableName = model.name || model.table_name;
-      
-      // Model processing is now memoized, so this won't log on every render
-      
-      if (!schemaMap[schema]) {
-        schemaMap[schema] = {};
-      }
-      if (!schemaMap[schema][tableName]) {
-        schemaMap[schema][tableName] = [];
-      }
-      
-      // Add columns to the table
-      if (model.columns) {
-        schemaMap[schema][tableName] = model.columns;
-      }
-    });
-    
-    // Sort columns within each table
-    Object.keys(schemaMap).forEach(schema => {
-      Object.keys(schemaMap[schema]).forEach(table => {
-        schemaMap[schema][table].sort((a: any, b: any) => a.name.localeCompare(b.name));
-      });
-    });
-    
-    return schemaMap;
-  };
 
-  const extractSpatialColumns = (models: any[]): string[] => {
-    const spatialColumns: string[] = [];
-    
-    models.forEach(model => {
-      if (model.columns && Array.isArray(model.columns)) {
-        model.columns.forEach((column: any) => {
-          if (column.spatial_type && column.spatial_type !== null && column.spatial_type !== '') {
-            spatialColumns.push(column.name);
-          }
-        });
-      }
-    });
-    
-    return spatialColumns;
-  };
-
-  // Memoize the schema organization to prevent unnecessary re-processing
   const schemaMap = useMemo(() => {
-    if (models.length === 0) return {};
-    return organizeModelsBySchema(models);
+    return GlobalContext.instance.getSchemaMap();
   }, [models]);
 
   const loadModels = async () => {
     setIsLoadingModels(true);
     try {
-      const response = await dataService.getModels();
-      
-      if (response.success && response.data) {
-        
-        // Extract models array from the response structure
-        let modelsArray = [];
-        if (Array.isArray(response.data)) {
-          modelsArray = response.data;
-        } else if (response.data.models && Array.isArray(response.data.models)) {
-          modelsArray = response.data.models;
-        } else {
-          setModels([]);
-          return;
-        }
-        
-        setModels(modelsArray);
-        
-        // Extract spatial columns from models
-        const spatialColumns = extractSpatialColumns(modelsArray);
-        
-        // Notify parent component about loaded models
+        const modelsArray = await DataService.instance.listModels();
+        GlobalContext.instance.setModels(modelsArray);
+
         if (onModelsLoaded) {
           onModelsLoaded(modelsArray);
         }
         
-        // Notify parent component about spatial columns
         if (onSpatialColumnsLoaded) {
-          onSpatialColumnsLoaded(spatialColumns);
+          onSpatialColumnsLoaded(GlobalContext.instance.getSpatialColumns());
         }
         
-        // Update expanded folders to include schemas
-        const schemaMap = organizeModelsBySchema(modelsArray);
         const newExpandedFolders: Record<string, boolean> = {
           'databases': true,
           'production': true,
@@ -164,16 +89,13 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
           'saved-queries': false
         };
         
-        // Add schemas to expanded folders
         Object.keys(schemaMap).forEach(schema => {
           newExpandedFolders[`schema-${schema}`] = true;
         });
         
         setExpandedFolders(newExpandedFolders);
-      } else {
-        setModels([]);
-      }
     } catch (error) {
+      console.error('Error loading models', error);
       setModels([]);
     } finally {
       setIsLoadingModels(false);
@@ -183,26 +105,11 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
   const loadSavedQueries = async () => {
     setIsLoadingQueries(true);
     try {
-      const response = await dataService.listQueries();
-      
-      if (response.success && response.data) {
-        // Extract queries array from the response structure
-        let queriesArray = [];
-        if (Array.isArray(response.data)) {
-          queriesArray = response.data;
-        } else if (response.data.queries && Array.isArray(response.data.queries)) {
-          queriesArray = response.data.queries;
-        } else {
-          setSavedQueries([]);
-          return;
-        }
-        
-        setSavedQueries(queriesArray);
-      } else {
-        setSavedQueries([]);
-      }
+      const queries = await DataService.instance.listQueries();
+      GlobalContext.instance.setSavedQueries(queries);
     } catch (error) {
-      setSavedQueries([]);
+      console.error('Error loading saved queries', error);
+      GlobalContext.instance.setSavedQueries([]);
     } finally {
       setIsLoadingQueries(false);
     }
@@ -306,16 +213,12 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                 <div 
                   className="explorer-folder" 
                   onClick={() => {
-                    console.log('🔥 SCHEMAS NODE CLICKED!');
                     // Always toggle folder first
                     toggleFolder('schemas');
                     
                     // Always select "all schemas" when clicking on the Schemas node
                     if (onSchemaSelect) {
-                      console.log('🔥 Calling onSchemaSelect with default');
                       onSchemaSelect('default');
-                    } else {
-                      console.log('🔥 onSchemaSelect is not defined!');
                     }
                   }}
                   style={{ cursor: 'pointer' }}
@@ -437,7 +340,9 @@ const ModelExplorer: React.FC<ModelExplorerProps> = ({ className = '', onTableSe
                         </div>
                         <div className="small text-muted mt-1">Loading queries...</div>
                       </div>
-                    ) : savedQueries.length > 0 ? (
+                    ) : (() => {
+                      return savedQueries.length > 0;
+                    })() ? (
                       savedQueries.map((query) => (
                         <div 
                           key={query.guid} 
