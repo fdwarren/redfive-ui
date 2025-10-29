@@ -298,7 +298,6 @@ const ChartTab: React.FC<ChartTabProps> = ({
                 columns={columns}
                 onConfigChange={onChartConfigChange}
                 initialConfig={chartConfig}
-                tabId={tabId}
               />
             </div>
           </div>

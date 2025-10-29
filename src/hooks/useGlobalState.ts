@@ -118,17 +118,6 @@ export const useChartState = () => {
     return GlobalContext.instance.getDefaultChartConfig(columns);
   };
 
-  const saveChartTemplate = (name: string, description: string, settings: ChartSettings) => {
-    return GlobalContext.instance.saveChartTemplate(name, description, settings);
-  };
-
-  const deleteChartTemplate = (templateId: string) => {
-    GlobalContext.instance.deleteChartTemplate(templateId);
-  };
-
-  const applyChartTemplate = (templateId: string, tabId: string) => {
-    GlobalContext.instance.applyChartTemplate(templateId, tabId);
-  };
 
   const setDefaultChartType = (chartType: 'bar' | 'line' | 'area' | 'scatter' | 'pie') => {
     GlobalContext.instance.setDefaultChartType(chartType);
@@ -153,9 +142,6 @@ export const useChartState = () => {
     setTabChartConfig,
     removeTabChartConfig,
     getDefaultChartConfig,
-    saveChartTemplate,
-    deleteChartTemplate,
-    applyChartTemplate,
     setDefaultChartType,
     updateChartPreferences,
     getColorPalette,

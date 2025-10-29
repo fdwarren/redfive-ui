@@ -13,14 +13,6 @@ export interface ChartState {
     tabConfigs: Record<string, ChartSettings>;
     // Global chart preferences
     defaultChartType: 'bar' | 'line' | 'area' | 'scatter' | 'pie';
-    // Saved chart templates
-    savedTemplates: Array<{
-        id: string;
-        name: string;
-        description: string;
-        settings: ChartSettings;
-        createdAt: string;
-    }>;
     // Chart display preferences
     showLegend: boolean;
     showDataLabels: boolean;
@@ -129,7 +121,6 @@ export class GlobalContext {
     private chartState: ChartState = {
         tabConfigs: {},
         defaultChartType: 'bar',
-        savedTemplates: [],
         showLegend: true,
         showDataLabels: false,
         colorPalette: [
@@ -463,36 +454,6 @@ export class GlobalContext {
         };
     }
 
-    public saveChartTemplate(name: string, description: string, settings: ChartSettings) {
-        const template = {
-            id: crypto.randomUUID(),
-            name,
-            description,
-            settings: { ...settings },
-            createdAt: new Date().toISOString()
-        };
-        
-        this.chartState.savedTemplates.push(template);
-        this.saveChartStateToStorage();
-        this.chartStateChangedListeners.forEach(listener => listener());
-        
-        return template.id;
-    }
-
-    public deleteChartTemplate(templateId: string) {
-        this.chartState.savedTemplates = this.chartState.savedTemplates.filter(
-            template => template.id !== templateId
-        );
-        this.saveChartStateToStorage();
-        this.chartStateChangedListeners.forEach(listener => listener());
-    }
-
-    public applyChartTemplate(templateId: string, tabId: string) {
-        const template = this.chartState.savedTemplates.find(t => t.id === templateId);
-        if (template) {
-            this.setTabChartConfig(tabId, { ...template.settings });
-        }
-    }
 
     public addChartStateChangedListener(listener: () => void) {
         this.chartStateChangedListeners.push(listener);
@@ -543,7 +504,6 @@ export class GlobalContext {
         this.chartState = {
             tabConfigs: {},
             defaultChartType: 'bar',
-            savedTemplates: [],
             showLegend: true,
             showDataLabels: false,
             colorPalette: [

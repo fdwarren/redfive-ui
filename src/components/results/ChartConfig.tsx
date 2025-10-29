@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import simpleChartSchema from '../../assets/simple-chart.schema.json';
-import ChartTemplateManager from './ChartTemplateManager';
 
 interface ChartConfigProps {
   queryResults: any[];
@@ -8,7 +7,6 @@ interface ChartConfigProps {
   onConfigChange: (config: any) => void;
   initialConfig?: any;
   className?: string;
-  tabId?: string;
 }
 
 interface ChartConfigData {
@@ -32,8 +30,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
   columns, 
   onConfigChange, 
   initialConfig,
-  className = '',
-  tabId
+  className = ''
 }) => {
   const [config, setConfig] = useState<ChartConfigData>(() => {
     if (initialConfig) {
@@ -528,19 +525,6 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
           </div>
         )}
 
-        {/* Chart Templates */}
-        <div className="col-12">
-          <div className="border-top pt-3 mt-3">
-            <ChartTemplateManager
-              currentConfig={config}
-              tabId={tabId}
-              onTemplateApplied={() => {
-                // Force refresh of configuration when template is applied
-                // The global state change will trigger updates automatically
-              }}
-            />
-          </div>
-        </div>
 
       </div>
     </div>
