@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from '../utils/apiConfig';
-import type { SavedQueryRequest } from '../types';
+import type { SavedQueryRequest, HistoryItem } from '../types';
 import type { Model, SavedQuery } from './GlobalContext';
 
 interface ExecuteSqlResponse {
@@ -16,6 +16,7 @@ interface SqlResponse {
 
 interface DataServiceRequest {
   query: string;
+  history?: HistoryItem[];
 }
 
 interface SqlRequest {
@@ -34,13 +35,17 @@ class DataService {
   /**
    * Send a user query to the data service and get a JSON response
    * @param query - The user's natural language query
+   * @param history - Optional chat history to send with the request
    * @returns Promise with the service response
    */
-  async sendPrompt(query: string): Promise<SqlResponse> {
+  async sendPrompt(query: string, history?: HistoryItem[]): Promise<SqlResponse> {
       const requestBody: DataServiceRequest = {
-        query
+        query,
+        history
       };
 
+      console.log('History:', history);
+      
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

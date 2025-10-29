@@ -23,6 +23,11 @@ export interface ChatMessage {
   sender: 'user' | 'ai';
 }
 
+export interface HistoryItem {
+  user_prompt: string;
+  system_response: string;
+}
+
 export interface Tab {
   id: string;
   name: string;

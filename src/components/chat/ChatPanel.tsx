@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import DataService from '../../services/DataService';
 import { useGlobalState } from '../../hooks/useGlobalState';
-import type { ChatMessage } from '../../types';
+import type { ChatMessage, HistoryItem } from '../../types';
 
 interface ChatPanelProps {
   className?: string;
@@ -13,6 +13,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', isCollapsed = fal
   const { updateSqlGenerationState, showError } = useGlobalState();
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
   ]);
+  const [chatHistory, setChatHistory] = useState<HistoryItem[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -33,8 +34,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', isCollapsed = fal
       updateSqlGenerationState({ isGenerating: true, lastPrompt: newMessage });
 
       try {
-        // Send prompt to data service
-        const response = await DataService.instance.sendPrompt(newMessage);
+        // Send prompt to data service with history
+        const response = await DataService.instance.sendPrompt(newMessage, chatHistory);
         
         if (response && response.sql) {
           // Update global state with generated SQL
@@ -49,6 +50,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', isCollapsed = fal
             sender: 'ai' as const 
           };
           setChatMessages(prev => [...prev, aiMessage]);
+          
+          // Add to chat history
+          setChatHistory(prev => [...prev, {
+            user_prompt: newMessage,
+            system_response: response.sql
+          }]);
         } else {
           // Format the JSON response for display
           const jsonResponse = JSON.stringify(response, null, 2);
@@ -59,6 +66,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', isCollapsed = fal
           };
           setChatMessages(prev => [...prev, aiMessage]);
           updateSqlGenerationState({ isGenerating: false });
+          
+          // Add to chat history
+          setChatHistory(prev => [...prev, {
+            user_prompt: newMessage,
+            system_response: `**Data Service Response:**\n\`\`\`json\n${jsonResponse}\n\`\`\``
+          }]);
         }
       } catch (error) {
         showError('Failed to generate SQL. Please try again.');
@@ -78,6 +91,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', isCollapsed = fal
 
   const handleClearChat = () => {
     setChatMessages([]);
+    setChatHistory([]);
   };
 
   // If collapsed, show only the toggle button
