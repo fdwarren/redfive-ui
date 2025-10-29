@@ -64,7 +64,7 @@ const ChartTab: React.FC<ChartTabProps> = ({
   const chartOptions = useMemo(() => {
     if (!chartConfig || !queryResults || queryResults.length === 0) return null;
 
-    const { chart_type, x_key, y_key, series_key, filteredData, selectedSeriesValues } = chartConfig;
+    const { chart_type, x_key, y_key, series_key, showMarkers, filteredData, selectedSeriesValues } = chartConfig;
 
     // Use filtered data if available, otherwise fall back to all query results
     const dataToUse = filteredData && filteredData.length > 0 ? filteredData : queryResults;
@@ -126,7 +126,7 @@ const ChartTab: React.FC<ChartTabProps> = ({
           stroke: colorPalette[index % colorPalette.length]
         },
         marker: {
-          enabled: chart_type === 'scatter' || chart_type === 'line',
+          enabled: showMarkers !== undefined ? showMarkers : (chart_type === 'scatter' || chart_type === 'line'),
           size: chart_type === 'scatter' ? 6 : 4
         }
       }));
@@ -143,7 +143,7 @@ const ChartTab: React.FC<ChartTabProps> = ({
           stroke: colorPalette[0]
         },
         marker: {
-          enabled: chart_type === 'scatter' || chart_type === 'line',
+          enabled: showMarkers !== undefined ? showMarkers : (chart_type === 'scatter' || chart_type === 'line'),
           size: chart_type === 'scatter' ? 6 : 4
         }
       }];

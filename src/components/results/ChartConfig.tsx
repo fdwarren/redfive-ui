@@ -16,6 +16,7 @@ interface ChartConfigData {
   x_key: string | null;
   y_key: string | null;
   series_key: string | null;
+  showMarkers: boolean;
   series: Array<{
     type: string;
     xKey: string | null;
@@ -41,6 +42,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
         x_key: initialConfig.x_key || null,
         y_key: initialConfig.y_key || null,
         series_key: initialConfig.series_key || null,
+        showMarkers: initialConfig.showMarkers !== undefined ? initialConfig.showMarkers : true,
         series: initialConfig.series || []
       };
     }
@@ -49,6 +51,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
       x_key: null,
       y_key: null,
       series_key: null,
+      showMarkers: true,
       series: []
     };
   });
@@ -67,6 +70,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
       x_key: config.x_key,
       y_key: config.y_key,
       series_key: config.series_key,
+      showMarkers: config.showMarkers,
       series: config.series,
       filteredData: filteredData,
       selectedSeriesValues: selectedSeriesValues
@@ -78,18 +82,20 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
     if (initialConfig) {
       setConfig({
         chart_type: initialConfig.chart_type || 'bar',
-        x_key: initialConfig.x_key || '',
-        y_key: initialConfig.y_key || '',
-        series_key: initialConfig.series_key || '',
+        x_key: initialConfig.x_key || null,
+        y_key: initialConfig.y_key || null,
+        series_key: initialConfig.series_key || null,
+        showMarkers: initialConfig.showMarkers !== undefined ? initialConfig.showMarkers : true,
         series: initialConfig.series || []
       });
       setSelectedSeriesValues(initialConfig.selectedSeriesValues || []);
     } else {
       setConfig({
         chart_type: 'bar',
-        x_key: '',
-        y_key: '',
-        series_key: '',
+        x_key: null,
+        y_key: null,
+        series_key: null,
+        showMarkers: true,
         series: []
       });
       setSelectedSeriesValues([]);
@@ -152,6 +158,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
     }
   }, [config.x_key, config.y_key, config.series_key, config.chart_type, queryResults]);
 
+
   // Notify parent of config changes
   useEffect(() => {
     // Only notify if config has meaningful changes and avoid empty configs
@@ -165,6 +172,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
         prevConfigRef.current.x_key !== newConfig.x_key ||
         prevConfigRef.current.y_key !== newConfig.y_key ||
         prevConfigRef.current.series_key !== newConfig.series_key ||
+        prevConfigRef.current.showMarkers !== newConfig.showMarkers ||
         prevConfigRef.current.selectedSeriesValues?.length !== newConfig.selectedSeriesValues?.length ||
         (prevConfigRef.current.selectedSeriesValues && newConfig.selectedSeriesValues &&
          !prevConfigRef.current.selectedSeriesValues.every((val: any, index: number) => val === newConfig.selectedSeriesValues![index])) ||
@@ -175,7 +183,7 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
         onConfigChange(newConfig);
       }
     }
-  }, [config.x_key, config.y_key, config.series_key, config.chart_type, config.series, filteredData, selectedSeriesValues, onConfigChange]);
+  }, [config.x_key, config.y_key, config.series_key, config.chart_type, config.showMarkers, config.series, filteredData, selectedSeriesValues, onConfigChange]);
 
   const handleChartTypeChange = (chartType: string) => {
     setConfig(prev => ({
@@ -231,6 +239,13 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
 
   const handleDeselectAllSeries = () => {
     setSelectedSeriesValues([]);
+  };
+
+  const handleShowMarkersChange = (showMarkers: boolean) => {
+    setConfig(prev => ({
+      ...prev,
+      showMarkers: showMarkers
+    }));
   };
 
 
@@ -327,6 +342,29 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Show Markers Checkbox */}
+        <div className="col-md-6">
+          <label className="form-label fw-bold" style={{ color: '#aa0000', fontSize: '0.8rem' }}>
+            Visual Options
+          </label>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="showMarkers"
+              checked={config.showMarkers}
+              onChange={(e) => handleShowMarkersChange(e.target.checked)}
+              style={{ accentColor: '#aa0000' }}
+            />
+            <label className="form-check-label" htmlFor="showMarkers" style={{ fontSize: '0.8rem' }}>
+              Show Markers
+            </label>
+          </div>
+          <div className="text-muted small mt-1" style={{ fontSize: '0.75rem' }}>
+            Display data point markers on the chart
+          </div>
         </div>
 
         {/* X-Axis Selection */}
@@ -460,6 +498,12 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
                   </button>
                 </div>
               </div>
+              {selectedSeriesValues.length === 0 && (
+                <div className="alert alert-warning py-2 px-3 mb-2" style={{ fontSize: '0.75rem' }}>
+                  <i className="bi bi-exclamation-triangle me-1"></i>
+                  No series selected. Click "Select All" to show all data series in the chart.
+                </div>
+              )}
               <div className="d-flex flex-column gap-2">
                 {distinctSeriesValues.map((seriesValue, index) => (
                   <div key={seriesValue} className="form-check">

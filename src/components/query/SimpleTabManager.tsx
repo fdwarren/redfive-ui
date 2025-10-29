@@ -158,10 +158,15 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
       setTabCounter(prev => prev + 1);
       setActiveTabId(newTab.id);
       
+      // Store the saved query's chart config in GlobalContext for this tab
+      if (selectionState.selectedQuery.chartConfig) {
+        setTabChartConfig(newTab.id, selectionState.selectedQuery.chartConfig);
+      }
+      
       // Clear the selected query after loading
       updateSelectionState({ selectedQuery: null });
     }
-  }, [selectionState.selectedQuery, tabCounter, updateSelectionState]);
+  }, [selectionState.selectedQuery, tabCounter, updateSelectionState, setTabChartConfig]);
 
   // Handle showing schema documentation when schema is selected
   useEffect(() => {
@@ -190,32 +195,6 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
     }
   }, [sqlGenerationState.generatedSql, activeTabId, updateSqlGenerationState]);
 
-  // Load chart configuration when active tab changes
-  useEffect(() => {
-    if (activeTabId && activeTabId !== 'docs') {
-      const chartConfig = getTabChartConfig(activeTabId);
-      if (chartConfig) {
-        // Update the tab with the saved chart config only if it's different
-        setTabs(prev => {
-          const currentTab = prev.find(tab => tab.id === activeTabId);
-          if (currentTab && currentTab.results.chartConfig !== chartConfig) {
-            return prev.map(tab => 
-              tab.id === activeTabId 
-                ? {
-                    ...tab,
-                    results: {
-                      ...tab.results,
-                      chartConfig: chartConfig
-                    }
-                  }
-                : tab
-            );
-          }
-          return prev; // No change needed
-        });
-      }
-    }
-  }, [activeTabId]);
 
   // Handle creating default chart config for new query results
   useEffect(() => {
@@ -1013,7 +992,7 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
                   onRowSelect={handleRowSelect}
                   metadata={activeTab?.results.executionMetadata || null}
                   spatialColumns={spatialColumns}
-                  chartConfig={activeTab?.results.chartConfig || null}
+                  chartConfig={getTabChartConfig(activeTabId)}
                   onChartConfigChange={handleChartConfigChange}
                   tabId={activeTabId}
                   className="h-100"
