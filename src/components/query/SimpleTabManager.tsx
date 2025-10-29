@@ -11,6 +11,7 @@ import { useGlobalState } from '../../hooks/useGlobalState';
 import { GlobalContext } from '../../services/GlobalContext';
 import type { Tab, SavedQueryRequest } from '../../types';
 import sqlKeywordsData from '../../assets/sqlKeywords.json';
+import { format } from 'sql-formatter';
 
 interface SimpleTabManagerProps {
   onQuerySaved?: () => void;
@@ -234,6 +235,9 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
   // Update completion provider when models change
   useEffect(() => {
     if (editorRef.current && models.length > 0) {
+
+      editorRef.current.setValue(format(editorRef.current.getValue(), { language: 'postgresql' }));
+
       // Dispose the old completion provider if it exists
       if (editorRef.current.completionProvider) {
         editorRef.current.completionProvider.dispose();
@@ -703,6 +707,21 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
     }
   }, [isSaving]);
 
+  const handleFormatSql = useCallback(() => {
+    if (editorRef.current) {
+      const currentValue = editorRef.current.getValue();
+      const formatted = format(currentValue, { language: 'postgresql' });
+      editorRef.current.setValue(formatted);
+      
+      // Also update the tab content to keep it in sync
+      setTabs(prev => prev.map(tab => 
+        tab.id === activeTabId 
+          ? { ...tab, queryText: formatted }
+          : tab
+      ));
+    }
+  }, [activeTabId]);
+
   // Compute the selected row object for the details panel
   const selectedRow = useMemo(() => {
     return activeTab?.results.selectedRowIndex !== null && activeTab?.results.results ? activeTab.results.results[activeTab.results.selectedRowIndex] : null;
@@ -845,7 +864,16 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
                       'VALUES', 'FETCH', 'NEXT', 'ONLY', 'TOP', 'EXPLAIN', 'ANALYZE'
                     ]
                   });
-
+                  
+                  editor.addAction({
+                    id: 'format-sql',
+                    label: 'Format SQL',
+                    keybindings: [monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF],
+                      run: editor => {
+                      const formatted = format(editor.getValue(), { language: 'postgresql' });
+                      editor.setValue(formatted);
+                    }
+                  });
                   // Add keyboard shortcuts with refs to avoid stale closures
                   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
                     const currentActiveTabId = currentActiveTabIdRef.current;
@@ -946,13 +974,14 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
               <div className="d-flex gap-2">
                 <button 
                   className="btn" 
-                  style={{ backgroundColor: '#aa0000', borderColor: '#aa0000', color: 'white' }}
+                  style={{ backgroundColor: '#aa0000', borderColor: '#aa0000', color: 'white', width: '100px' }}
                   onClick={() => handleExecute()}
                 >
-                  <i className="bi bi-play me-1"></i>Execute
+                  <i className="bi bi-play me-1"></i>Run
                 </button>
                 <button 
                   className="btn btn-outline-secondary"
+                  style={{ width: '100px' }}
                   onClick={handleSaveQuery}
                   disabled={activeTabId === 'docs' || isSaving}
                 >
@@ -963,12 +992,16 @@ const SimpleTabManager: React.FC<SimpleTabManagerProps> = ({
                     </>
                   ) : (
                     <>
-                      <i className="bi bi-save me-1"></i>Save
+                      <i className="bi bi-floppy me-1"></i>Save
                     </>
                   )}
                 </button>
-                <button className="btn btn-outline-secondary">
-                  <i className="bi bi-arrow-clockwise me-1"></i>Format
+                <button 
+                  className="btn btn-outline-secondary"
+                  style={{ width: '100px' }}
+                  onClick={handleFormatSql}
+                >
+                  <i className="bi bi-journal-richtext me-1"></i>Format
                 </button>
               </div>
                 </div>

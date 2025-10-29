@@ -31,7 +31,15 @@ const Navbar: React.FC = () => {
             </div>
           ) : isAuthenticated && user ? (
             <>
-              <div className="nav-link d-flex align-items-center">
+              <button 
+                className="nav-link btn btn-link text-light text-decoration-none" 
+                onClick={handleLogout}
+                style={{ border: 'none', background: 'none' }}
+              >
+                <i className="bi bi-box-arrow-right me-1"></i>Logout
+              </button>
+
+              <div className="nav-link d-flex align-items-right">
                 {user.picture && (
                   <img 
                     src={user.picture} 
@@ -42,14 +50,6 @@ const Navbar: React.FC = () => {
                 )}
                 <span className="me-3">{user.name}</span>
               </div>
-              <a className="nav-link" href="#"><i className="bi bi-gear me-1"></i>Settings</a>
-              <button 
-                className="nav-link btn btn-link text-light text-decoration-none" 
-                onClick={handleLogout}
-                style={{ border: 'none', background: 'none' }}
-              >
-                <i className="bi bi-box-arrow-right me-1"></i>Logout
-              </button>
             </>
           ) : (
             <button 

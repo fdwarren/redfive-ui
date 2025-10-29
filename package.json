@@ -24,6 +24,7 @@
     "react-dom": "^19.1.1",
     "react-icons": "^5.5.0",
     "reactflow": "^11.11.4",
+    "sql-formatter": "^15.6.10",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

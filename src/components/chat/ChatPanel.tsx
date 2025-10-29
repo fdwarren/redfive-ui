@@ -141,7 +141,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ className = '', isCollapsed = fal
               disabled={chatMessages.length === 0}
               title="Clear chat history"
             >
-              <i className="bi bi-trash"></i>
+              <i className="bi bi-file-earmark"></i>
             </button>
             <button 
               className="btn btn-sm"
