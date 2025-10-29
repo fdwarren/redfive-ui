@@ -81,17 +81,17 @@ const ChartTab: React.FC<ChartTabProps> = ({
       // Create a pivot-like structure where each series becomes a separate y-column
       
       // First, get all unique x-values and series values
-      const xValues = [...new Set((dataToUse || []).map(row => row[x_key]))].sort();
+      const xValues = [...new Set((dataToUse || []).map((row: any) => row[x_key]))].sort();
       const seriesValues = [...new Set(
         (dataToUse || [])
-          .map(row => row[series_key])
-          .filter(val => val !== null && val !== undefined)
-          .filter(val => !selectedSeriesValues || selectedSeriesValues.length === 0 || selectedSeriesValues.includes(val))
+          .map((row: any) => row[series_key])
+          .filter((val: any) => val !== null && val !== undefined)
+          .filter((val: any) => !selectedSeriesValues || selectedSeriesValues.length === 0 || selectedSeriesValues.includes(val))
       )].sort();
       
       // Create a map for quick lookup
       const dataMap: { [key: string]: { [key: string]: any } } = {};
-      (dataToUse || []).forEach(row => {
+      (dataToUse || []).forEach((row: any) => {
         const xVal = row[x_key];
         const seriesVal = row[series_key];
         const yVal = row[y_key];
@@ -109,13 +109,13 @@ const ChartTab: React.FC<ChartTabProps> = ({
       });
       
       // Convert to array format
-      chartData = xValues.map(xVal => {
+      chartData = xValues.map((xVal: any) => {
         const key = `${xVal}`;
         return dataMap[key] || { [x_key]: xVal };
       });
       
       // Create separate series for each series value
-      seriesConfig = seriesValues.map((seriesValue, index) => ({
+      seriesConfig = seriesValues.map((seriesValue: any, index: number) => ({
         type: chart_type,
         xKey: x_key,
         yKey: `series_${seriesValue}`,
