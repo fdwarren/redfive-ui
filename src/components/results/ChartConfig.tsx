@@ -344,23 +344,21 @@ const ChartConfig: React.FC<ChartConfigProps> = ({
         {/* Show Markers Checkbox */}
         <div className="col-md-6">
           <label className="form-label fw-bold" style={{ color: '#aa0000', fontSize: '0.8rem' }}>
-            Visual Options
+            &nbsp;
           </label>
-          <div className="form-check">
+          <div className="form-check d-flex align-items-center justify-content-center">
             <input
               className="form-check-input"
               type="checkbox"
               id="showMarkers"
               checked={config.showMarkers}
               onChange={(e) => handleShowMarkersChange(e.target.checked)}
-              style={{ accentColor: '#aa0000' }}
+              style={{ accentColor: '#aa0000', transform: 'scale(1.1)' }}
             />
-            <label className="form-check-label" htmlFor="showMarkers" style={{ fontSize: '0.8rem' }}>
-              Show Markers
+            
+            <label className="form-check-label" htmlFor="showMarkers" style={{ fontSize: '0.8rem', marginLeft: '0.5rem' }}>
+              Markers
             </label>
-          </div>
-          <div className="text-muted small mt-1" style={{ fontSize: '0.75rem' }}>
-            Display data point markers on the chart
           </div>
         </div>
 
